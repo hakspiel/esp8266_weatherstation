@@ -52,3 +52,7 @@ Pinning of your NodeMCU pins where your sensors are connected:
 - D5 SCL_PIN      Connect i2C Clock Pin to NodeMCU Pin D5  (All Connected Sensors: Supply: 3.3V)
 - D6 SDA_PIN      Connect i2C Data Pin to NodeMCU Pin D6   (All Connected Sensors: Supply: 3.3V)
 - D7 ONE_WIRE_PIN Connect MAXIM DS18B20 to NodeMCU Pin D7  (Supply: 3.3V)
+
+No Power Saving Modes are implemented, so Powering without batteries recommended.
+
+Have fun
