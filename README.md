@@ -1,5 +1,7 @@
 # esp8266_weatherstation
-NodeMCU esp8266 Weatherstation with multiple Sensors, outdoor and indoor.
+NCode is used with an ESP8266.
+Intension is to have a Weatherstation with multiple Sensors, 
+Additionally i have many indoor Sensors (per room in my house).
 
 This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the following features:
 
@@ -7,26 +9,37 @@ This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the follo
   - DHT22 (Temp & Humidity)
   - Sensirion SHT31 (Temp & Humidity) My Favorite
   - MCP9808 (Temp)
-  - Bosch BMP280 (Air Pressure & Temp)
+  - Bosch BMP388 (Air Pressure & Temp)
   - MH-Z19B (CO2 Sensor) <20$ AliExpress
   - DS18B20 (Temp) Be careful, this sensor has Problems with self-heating, needs to be soldered with very short legs
+  - ST VL53L0 proximitySensor
+  - ST VL6180 proximitySensor
+  - Wind Speed Sensor
+  - AMS BH1750 (light Sensor)
+ 
+- Implemented Dispaly (for Indoor use)
+  -   SSD1306 (OLED 128x64 pixel)
+ 
+-   Implemented Air condition control (via IR LED)
+  -     Midea
   
 - Implemented Services:
+  - Home Assistant Auto Discovery
   - Wunderground (upload Data to your personal Weatherstation)
-  - Wunderground (download Data from any personal Weatherstation)
   - Pushingbox (sent Push Notifications to your mobile device
   - MQTT (Publish your Measurements to your MQTT Broker)
   - NTP CLient (get current time from a NTP Server)
+
   
 - Implemented features:
   - Automatic Summertime / Wintertime change
-  - Code works also, if no Sensor is connected, or only a few
+  - Code works also if no Sensor is connected, or only a few
   - Calculate Dew Point
   - Sent automatic Status Information via Pushingbox
   - Automatically select WiFi with best signal strenght
       
     
-You will need the following Arduino Libraries (no BETA!):
+You will need the following Arduino Libraries:
 - ESP8266WiFi.h
 - DHT.h
 - OneWire.h
@@ -46,13 +59,15 @@ You will need the following Arduino Libraries (no BETA!):
 
 
 Pinning of your NodeMCU pins where your sensors are connected:
-- D1 PIN_RX       Connect MH-Z19B TX Pin to NodeMCU Pin D1 (Supply: 5V)
-- D2 PIN_TX       Connect MH-Z19B RX Pin to NodeMCU Pin D2 (Supply: 5V) 
-- D4 DHTPIN       Connect DHT22 to NodeMCU Pin D4          (Supply: 3.3V; do not try 5V)
-- D5 SCL_PIN      Connect i2C Clock Pin to NodeMCU Pin D5  (All Connected Sensors: Supply: 3.3V)
-- D6 SDA_PIN      Connect i2C Data Pin to NodeMCU Pin D6   (All Connected Sensors: Supply: 3.3V)
-- D7 ONE_WIRE_PIN Connect MAXIM DS18B20 to NodeMCU Pin D7  (Supply: 3.3V)
+D1    //Connect Speed Sensor (Wind Sensor)
+D2    //Connect Pulse Sensor (Energy Sensor)
+D4    // this Connects DHT22 to NodeMCU Pin D4
+D5    //defines the i2C Clock Pin on D5
+D6    //defines the i2C Data Pin on D6
+D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
+D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
 
-No Power Saving Modes are implemented, so Powering without batteries recommended.
+
+No Power Saving Modes are implemented, so Powering without batteries is recommended.
 
 Have fun
