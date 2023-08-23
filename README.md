@@ -21,7 +21,7 @@ This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the follo
   -   SSD1306 (OLED 128x64 pixel)
  
 -   Implemented Air condition control (via IR LED)
-  -     Midea
+  - Midea
   
 - Implemented Services:
   - Home Assistant Auto Discovery
@@ -59,13 +59,13 @@ You will need the following Arduino Libraries:
 
 
 Pinning of your NodeMCU pins where your sensors are connected:
-D1    //Connect Speed Sensor (Wind Sensor)
-D2    //Connect Pulse Sensor (Energy Sensor)
-D4    // this Connects DHT22 to NodeMCU Pin D4
-D5    //defines the i2C Clock Pin on D5
-D6    //defines the i2C Data Pin on D6
-D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
-D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
+- D1    //Connect Speed Sensor (Wind Sensor)
+- D2    //Connect Pulse Sensor (Energy Sensor)
+- D4    // this Connects DHT22 to NodeMCU Pin D4
+- D5    //defines the i2C Clock Pin on D5
+- D6    //defines the i2C Data Pin on D6
+- D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
+- D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
 
 
 No Power Saving Modes are implemented, so Powering without batteries is recommended.
