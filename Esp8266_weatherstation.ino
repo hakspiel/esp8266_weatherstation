@@ -1,4 +1,10 @@
 
+
+//   : Code um Feuchtigkeit und Temperatur Daten auf IOT hochzuladen
+//Purpose: Sending Temperature online from DHT22/AM2302 Humidity/Temperatur Sensor and
+//         Maxim DB18b20 Temperature sensor
+
+
 //Included Libraries
 #include <ESP8266WiFi.h>
 #include <DHT.h>
@@ -18,94 +24,90 @@
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #include <BH1750.h>
-//#include "Adafruit_VL6180X.h"
-//#include "Adafruit_VL53L0X.h"
+#include <StreamUtils.h>
 #include <VL53L0X.h>
 #include <VL6180X.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSerif9pt7b.h>
+#include <Fonts/FreeMono9pt7b.h>
+#include <Fonts/FreeSansOblique9pt7b.h>
+#include <IRremoteESP8266.h>
+#include <IRsend.h>
+#include <ir_Midea.h>
+
+//#include <Effortless_SPIFFS.h>
+
+
+
 
 // Define the Numer of this Client, every Client needs its own unique number, 
-  #define Client_Number "10"
+  #define Client_Number "0"
 
 
-  // 0 = Outside Temperature 
+
+
+
+  // 0 =Outside Sensor 0 Out
   // 1 = Inside Sensor 1 Sleep
   // 2 = Inside Sensor 2 Office
   // 3 = Inside Sensor 3 Living
   // 4 = Inside Sensor 4 Lia
   // 5 = Inside Sensor 5 Fabio
-  // 6 = Inside Sensor 6 rooflake
-  // 7 = Inside Sensor 7 roofhill
+  // 6 = Inside Sensor 6 roof
+  // 7 = Inside Sensor 7 tank
   // 8 = Inside Sensor 8 Cellar
   // 9 = Inside Sensor 9 Garage
-  //10 = Inside Sensor 10 Technique
-  //11 = Inside Sensor 11 Bathroom
-  //12 = Inside Sensor 12
+  //10 = Inside Sensor 10 Tech
+  //11 = Inside Sensor 11 Bath
+  //12 = Inside Sensor 12 Check
+  //13 = Inside Sensor 13 Water
+  //14 = Inside Sensor 14 Clima
+  //15 = Inside Sensor 15 Tank2
+  //16 = Inside Sensor 16 Friwa2
+  //17 = Inside Sensor 17 Friwa1
+  
 
 // Define Updaterate of the whole loop
-  #define REPORT_INTERVAL 29 // in sec; Cycle Time is approx 2 sec...
+  #define REPORT_INTERVAL 17 // in sec; Cycle Time is approx 2 sec...
   
 //WiFi Access:
-  const char *ssid1     = "*****";
-  const char *password1 = "*****";
+  const char *ssid1     = "************";
+  const char *password1 = "************";
   
-  const char *ssid2     = "*****";
-  const char *password2 = "*****";
+  const char *ssid2     = "************";
+  const char *password2 = "************";
   
-  const char *ssid3     = "*****";
-  const char *password3 = "*****";
+  const char *ssid3     = "************";
+  const char *password3 = "************";
     
 // Wunderground (Download Data from Wundergound)
-  #define WU_API_KEY "*****"                         // Create Account to download Data from Wunderground.com: https://www.wunderground.com/weather/api/d/pricing.html
+  #define WU_API_KEY "************"            // Create Account to download Data from Wunderground.com: https://www.wunderground.com/weather/api/d/pricing.html
   #define WUNDERGROUND "api.wunderground.com"       // DOcumentation of API Calls: https://www.wunderground.com/weather/api/d/docs
-  #define WU_LOCATION "pws:IMECKENB4"               // Station ID you want to download data from
+  #define WU_LOCATION "************""                 // Station ID you want to download data from
 
 // Wunderground (Upload Data to your PWS at Wundergound)
   #define WUNDERGROUND2 "rtupdate.wunderground.com" //Create your own Weatherstation to upload Data to Wunderground.com: https://www.wunderground.com/personal-weather-station/signup.asp
-  #define WUNDERGROUND_STATION_ID "*****"
-  #define WUNDERGROUND_STATION_PASSWORD "*****"
+  #define WUNDERGROUND_STATION_ID "************"         // Station ID you want to upload data to
+  #define WUNDERGROUND_STATION_PASSWORD "************"
 
 // PushingBox scenario DeviceId code and API
-  String deviceId = "*****";             // Anleitung Pushingbox: http://www.geekstips.com/android-push-notifications-esp8266-arduino-tutorial/
+  String deviceId = "************";             // Anleitung Pushingbox: http://www.geekstips.com/android-push-notifications-esp8266-arduino-tutorial/
   const char *logServer = "api.pushingbox.com";
 
-// MQTT: ID, server IP, port, username and password
-  const char *MQTT_CLIENT_ID = "";
-  const char *MQTT_CLIENT_ID0 = "Outdoor";
-  const char *MQTT_CLIENT_ID1 = "Sleep";
-  const char *MQTT_CLIENT_ID2 = "Office";
-  const char *MQTT_CLIENT_ID3 = "Living";
-  const char *MQTT_CLIENT_ID4 = "Lia";
-  const char *MQTT_CLIENT_ID5 = "Fabio";
-  const char *MQTT_CLIENT_ID6 = "Rooflake";
-  const char *MQTT_CLIENT_ID7 = "Roofhill";
-  const char *MQTT_CLIENT_ID8 = "Cellar";
-  const char *MQTT_CLIENT_ID9 = "Garage";
-  const char *MQTT_CLIENT_ID10 = "Technique";
-  const char *MQTT_CLIENT_ID11 = "Bathroom";
-  const char *MQTT_CLIENT_ID12 = "Sensor12";
-  
-  const char *MQTT_SERVER_IP = "*****"; //Hass.io
+// MQTT: server IP, port, username and password
+  const char *MQTT_SERVER_IP = "192.168.178.39"; //Hass.io
   uint16_t MQTT_SERVER_PORT = 1883;
-  const char *MQTT_USER = "*****";
-  const char *MQTT_PASSWORD = "*****";
-
-// MQTT: topic
-  const char *MQTT_SENSOR_TOPICS0 = "outdoor/sensor1";
-   const char *MQTT_SENSOR_TOPICS1 = "indoor/sensor1";
-  const char *MQTT_SENSOR_TOPICS2 = "indoor/sensor2";
-  const char *MQTT_SENSOR_TOPICS3 = "indoor/sensor3";
-  const char *MQTT_SENSOR_TOPICS4 = "indoor/sensor4";
-  const char *MQTT_SENSOR_TOPICS5 = "indoor/sensor5";
-  const char *MQTT_SENSOR_TOPICS6 = "indoor/sensor6";
-  const char *MQTT_SENSOR_TOPICS7 = "indoor/sensor7";
-  const char *MQTT_SENSOR_TOPICS8 = "indoor/sensor8";
-  const char *MQTT_SENSOR_TOPICS9 = "indoor/sensor9";
-  const char *MQTT_SENSOR_TOPICS10 = "indoor/sensor10";
-  const char *MQTT_SENSOR_TOPICS11 = "indoor/sensor11";
-  const char *MQTT_SENSOR_TOPICS12 = "indoor/sensor12";
+  const char *MQTT_USER = "************";
+  const char *MQTT_PASSWORD = "************";
 
 // MQTT Version   
   #define MQTT_VERSION MQTT_VERSION_3_1_1
+
+// MQTT define Max packet size
+  #define MQTT_MAX_PACKET_SIZE 256
 
 //for wifi auto selector
   #define WIFI_CONNECT_TIMEOUT 8000 
@@ -137,7 +139,7 @@
     char observation_time_rfc822[32];
   };
 
-//The callback function header needs to
+//  The callback function header needs to
 //  be declared before the PubSubClient constructor and the
 //  actual callback defined afterwards.
 //  This ensures the client reference in the callback function
@@ -157,17 +159,22 @@ void callback(char* topic, byte* payload, unsigned int length);
   DallasTemperature DS18B20(&oneWire); // pass oneWire reference to DallasTemperature
   DallasTemperature sensors(&oneWire);
   Adafruit_SHT31 sht31 = Adafruit_SHT31();
+  Adafruit_SHT31 sht31_2 = Adafruit_SHT31();
   Adafruit_BMP3XX bme;
   DHT dht(DHTPIN, DHTTYPE);
   Adafruit_MCP9808 mcp9808 = Adafruit_MCP9808();
   WiFiUDP ntpUDP;
-  NTPClient timeClient(ntpUDP, "0.de.pool.ntp.org", 3600, 60000); // Die letzten 2 Werte: 1) Zeitversatz der aktuellen Zeitzone in sekunden; 2) Updateintervall in Sekunden 
+  NTPClient timeClient(ntpUDP, "0.de.pool.ntp.org", 3600, 600000); // Die letzten 2 Werte: 1) Zeitversatz der aktuellen Zeitzone in sekunden; 2) Updateintervall in Millisekunden (600.000 = 10min)
   PubSubClient client(wificlient2);
+
+  
   Adafruit_MCP4725 dac; 
   BH1750 lightMeter(0x23);
   BH1750 lightMeter2(0x5C);
     // ADDR Pin: If it has voltage greater or equal to 0.7*VCC voltage the sensor address will be0x5C. 
     // if ADDR voltage is less than 0.7 * VCC the sensor address will be 0x23 (by default).
+  ADC_MODE(ADC_TOUT);
+  Adafruit_SSD1306 display(128, 64, &Wire, 4);  
 
   
 //  Adafruit_VL6180X vl = Adafruit_VL6180X();
@@ -200,6 +207,9 @@ void callback(char* topic, byte* payload, unsigned int length);
   unsigned long time_old4=0;
   unsigned long time_new5=0;
   unsigned long time_old5=0;
+  unsigned long time_new6=0;
+  unsigned long time_old6=0;
+  unsigned long offset_restart=0;
   float temp_average=0;
   float hum_average=0;
   float Taupunkt_mittel = 0;
@@ -209,7 +219,15 @@ void callback(char* topic, byte* payload, unsigned int length);
   float maximtemp1 = 0;
   float maximtemp2 = 0;
   float dht_temp = 0;
+  float dht_hum = 0; 
   float sht31_temp = 0;
+  float sht31_humidity =0;
+  float sht31_2_temp = 0;
+  float sht31_2_humidity =0;
+  float sht31_3_temp = 0;
+  float sht31_4_temp =0;  
+  float sht31_3_humidity =0;
+  float sht31_4_humidity =0;
   float mcp9808_temp = 0;
   bool Mitteilungssperre = false;
   bool morgenwerte_uebermittelt = false;
@@ -218,17 +236,18 @@ void callback(char* topic, byte* payload, unsigned int length);
   bool mcp = true;
   int ausfaelle = 0;
   float lux = 0;
+  float lux1 = 0;
   float lux2 = 0;
   volatile unsigned long i_wind = 1;
   volatile unsigned long i_wind2 = 1;
+  float wind3 = 1;
   float wind_gust = 0;
-  float wind_avg = 0;
   float wind_gust_max = 0;
-  float wind_avg1 = 0;
-  float wind_avg_avg = 0;
+  float wind_mittelwert = 0;
+  
   int wind_collection=0;
-  volatile unsigned long first_micros;
-  volatile unsigned long last_micros;
+  volatile unsigned long first_micros = 0;
+  volatile unsigned long last_micros = 0;
   long debouncing_time = 900; //in micros
   long Pulse_Array[1000];
   long co2_pwm = 0; 
@@ -249,49 +268,170 @@ void callback(char* topic, byte* payload, unsigned int length);
   float power_avg =0.1;
   float power_max =0.1;
   float power_max2 =1;
-  float energy_avg =0; //4437000;
-  float energy_day =0; //9000;
-  float energy_month =0; //95000;
-  const char *publishtopic = "1";
+  float energy_avg =0; //4464000;
+  float energy_day =0; //5000;
+  float energy_month =0; //130000;
+  const char *publishtopic1 = "1";
+  const char *publishtopic0 = "0";  
   char daytopic[14];
   char monthtopic[14];
   char overalltopic[14];
+  char temptopic[14];
+  char comparetopic[14];
+  char temptopic2[14];
+  char humtopic2[14];
+  char temptopic3[14];
+  char humtopic3[14];  
+  char lux1topic[14];
+  char lux2topic[14];
+  char wind_gustmaxtopic[14];
+  char wind_gusttopic[14];
+  char wind_topic[14];
+ // char wind_mediantopic[14];
+ // char wind_mediantopic2[14];
+  char water_time_topic[14];
+  char climate_temp_topic[14];
+  char climate_mode_topic[14];
+  char climate_power_topic[14];
+  char climate_fan_topic[14];
+  char vent_office_topic[14];
+  char vent_kids_topic[14];
+  char vent_sleep_topic[14];
   bool reset_day = false;
   bool reset_month = false;
   bool energy_received = false;
   bool day_received = false;
   bool month_received = false;
-  
+  double reset_energy = 4400000;
+  int today = 5;
+  int daylight=0;
+  char daylighttopic[4];
+  bool new_daylight_possible = true;
+  long current_runtime =0;
+  int published_data = 0;
+  bool data_transfered = false;
+  int Numberofpoints=0;
+  int factor = 1000;
+  int number_of_runs=0;
+  int index_wind =0;
+  int vent_office = 0;
+  int vent_kids = 0;
+  int vent_sleep = 0;  
+float wind_array[244];
+  int analog_readings;
+  uint8_t climate_temp = 24;
+  String climate_power = "OFF";
+  String climate_mode = "off";
+  String climate_fan = "auto";
+  String climate_swing = "off";  
+  uint8_t fan_speed = 1;
+  char analog_readingstopic[14];
+  time_t utcCalc;
+  //char utcCalc2[10];
+  String utcCalc2;  
+  float room_volume = 1;
+  float room_humidity = 1;
+  char room_humiditytopic[14];
+  const char *room_name;
+const char *MQTT_CLIENT_ID; 
+const char *MQTT_BASE_TOPIC;
+const char *MQTT_SENSOR_TOPIC;
+const char *MQTT_SENSOR_TOPIC_temp2;
+const char *MQTT_SENSOR_TOPIC_temp3;
+const char *MQTT_SENSOR_TOPIC_hum2;
+const char *MQTT_SENSOR_TOPIC_hum3;
+const char *MQTT_SENSOR_TOPIC_lux1;
+const char *MQTT_SENSOR_TOPIC_lux2;
+const char *MQTT_SENSOR_TOPIC_gust;
+const char *MQTT_SENSOR_TOPIC_wind;
+const char *MQTT_SENSOR_TOPIC_gustmax;
+//const char *MQTT_SENSOR_TOPIC_wind_median;
+//const char *MQTT_SENSOR_TOPIC_wind_median2;
+const char *MQTT_SENSOR_TOPIC_rain;
+const char *MQTT_SENSOR_TOPIC_room_humidity;
+const char *MQTT_SENSOR_TOPIC_daylight;
+String mqtt_topic;
+String mqtt_topic_temp2;
+String mqtt_topic_temp3;
+String mqtt_topic_hum2;
+String mqtt_topic_hum3;
+String mqtt_topic_lux1;
+String mqtt_topic_lux2;
+String mqtt_topic_gust;
+String mqtt_topic_wind;
+String mqtt_topic_gustmax;
+//String mqtt_topic_wind_median;
+//String mqtt_topic_wind_median2;
+String mqtt_topic_rain;
+String mqtt_topic_room_humidity;
+String mqtt_topic_daylight;
+int water_time = 10000; 
+int water_counter = 0;
+int start_water = 0;
+int start_water_override = 0;
+bool sht1_found = false;
+bool sht2_found = false;
+bool light1_found = false;
+bool light2_found = false;
+bool display_found = false;
+float flow_rate = 0;
+float cycle_time5 = 30000;
+float cycle_time = 0;
+int ct5 = 30;
+int wind_factor = 3;
+
+
+    //if (Client_Number == "14"){
+      const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+      IRMideaAC ac(kIrLed); //, false, true);  // Set the GPIO to be used to sending the message
+    //}
+
+
+// Class constructor
+// @param[in] pin GPIO to be used when sending.
+// @param[in] inverted Is the output signal to be inverted?
+// @param[in] use_modulation Is frequency modulation to be used?
+//IRMideaAC::IRMideaAC(const uint16_t pin, const bool inverted, const bool use_modulation)
 
 
 //Interrupt for Speed Sensor
-void ICACHE_RAM_ATTR Interrupt()
-{
+void ICACHE_RAM_ATTR Interrupt() {
+
+
+  if (Client_Number == "13") debouncing_time = 500000;
   if((long)(micros() - last_micros) >= debouncing_time) {
-    if(i_wind==1){
-    first_micros = micros();  
-      }
-    Pulse_Array[i_wind]=micros()-first_micros;
+    if (Client_Number == "13") {
+      //start_water = 1;         
+    }else{       
+        if(i_wind==1){
+          first_micros = micros();  
+        }
+        Pulse_Array[i_wind]=micros()-first_micros;
     //last_micros = micros();
    
-    i_wind++;
+        i_wind++;
     
-    if(i_wind>=999){
-       if (Client_Number == "10"){
-        stromzaehler();
-      }else{
-        wind();  
-        wind_sum_up();
-      }
+        if(i_wind>=999){
+          if (Client_Number == "10"){
+            stromzaehler();
+          }else{
+            wind();  
+            wind_sum_up();
+          }
       
     }
-    last_micros = micros();
+    } 
+    last_micros = micros();   
   }
 }
 
 
 
+
 void setup() {
+  
+  
+
   
   //Start der Seriellen Datenübertragung zum PC  
     Serial.begin(115200);
@@ -304,58 +444,151 @@ void setup() {
     wifiAutoSelector.add(ssid1, password1);
     wifiAutoSelector.add(ssid2, password2);
     wifiAutoSelector.add(ssid3, password3);
+    
 
   //Connect to Wifi
     wifiConnect();
     
-//Enable "Over the Air" WiFi Update (OTA Updates)
 
-  //SetHostname aktepziert nur dirkte Namen keine Variablen
-    if (Client_Number == "0") ArduinoOTA.setHostname("Outdoor");
-    if (Client_Number == "1") ArduinoOTA.setHostname("Sleep");
-    if (Client_Number == "2") ArduinoOTA.setHostname("Office");
-    if (Client_Number == "3") ArduinoOTA.setHostname("Living");
-    if (Client_Number == "4") ArduinoOTA.setHostname("Lia");
-    if (Client_Number == "5") ArduinoOTA.setHostname("Fabio");
-    if (Client_Number == "6") ArduinoOTA.setHostname("Rooflake");
-    if (Client_Number == "7") ArduinoOTA.setHostname("Roofhill");
-    if (Client_Number == "8") ArduinoOTA.setHostname("Cellar");
-    if (Client_Number == "9") ArduinoOTA.setHostname("Garage");
-    if (Client_Number == "10")ArduinoOTA.setHostname("Technique");
-    if (Client_Number == "11")ArduinoOTA.setHostname("Bathroom");
-    if (Client_Number == "12")ArduinoOTA.setHostname("Sensor12");
 
-//Temperature_offset
-    if (Client_Number == "0") offset_temp=-1.5;
-    if (Client_Number == "1") offset_temp=-2.2;
-    if (Client_Number == "2") offset_temp=-1.25;
-    if (Client_Number == "3") offset_temp=-1.5;
-    if (Client_Number == "4") offset_temp=-1.25;
-    if (Client_Number == "5") offset_temp=-1.5;
-    if (Client_Number == "6") offset_temp=-1.25;
-    if (Client_Number == "7") offset_temp=0;
-    if (Client_Number == "8") offset_temp=-0.66;
-    if (Client_Number == "9") offset_temp=-0.60;
-    if (Client_Number == "10")offset_temp=0;
-    if (Client_Number == "11")offset_temp=-1.00;
-    if (Client_Number == "12")offset_temp=0;
 
-    //Humidity_offset
-    if (Client_Number == "0") offset_hum=4.0;
-    if (Client_Number == "1") offset_hum=9.0;
-    if (Client_Number == "2") offset_hum=4.0;
-    if (Client_Number == "3") offset_hum=4.5;
-    if (Client_Number == "4") offset_hum=3.7;
-    if (Client_Number == "5") offset_hum=4.5;
-    if (Client_Number == "6") offset_hum=5.0;
-    if (Client_Number == "7") offset_hum=0;
-    if (Client_Number == "8") offset_hum=2.2;
-    if (Client_Number == "9") offset_hum=3.8;
-    if (Client_Number == "10")offset_hum=0;
-    if (Client_Number == "11")offset_hum=0.75;
-    if (Client_Number == "12")offset_hum=0;
+  // Room name
+    if (Client_Number == "0") room_name="Out";
+    if (Client_Number == "1") room_name="Sleep";
+    if (Client_Number == "2") room_name="Office";
+    if (Client_Number == "3") room_name="Living";
+    if (Client_Number == "4") room_name="Lia";
+    if (Client_Number == "5") room_name="Fabio";
+    if (Client_Number == "6") room_name="Roof";
+    if (Client_Number == "7") room_name="Tank";
+    if (Client_Number == "8") room_name="Cellar";
+    if (Client_Number == "9") room_name="Garage";
+    if (Client_Number == "10")room_name="Tech";
+    if (Client_Number == "11")room_name="Bath";
+    if (Client_Number == "12")room_name="Check";
+    if (Client_Number == "13")room_name="Water";    
+    if (Client_Number == "14") room_name="Clima";
+    if (Client_Number == "15") room_name="Tank2";  
+    if (Client_Number == "16") room_name="Friwa2";  
+    if (Client_Number == "17") room_name="Friwa1";  
+      
+
+  // MQTT: ID
+    MQTT_CLIENT_ID = room_name;
+    MQTT_BASE_TOPIC  = "S" ;
+
+  // MQTT: topics
+    
+    mqtt_topic ="";
+    mqtt_topic = String(MQTT_BASE_TOPIC) + String(Client_Number);
+    MQTT_SENSOR_TOPIC= mqtt_topic.c_str();
     
     
+    mqtt_topic_temp2 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/temp2";
+    MQTT_SENSOR_TOPIC_temp2= mqtt_topic_temp2.c_str();
+
+    
+    mqtt_topic_temp3 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/temp3";
+    MQTT_SENSOR_TOPIC_temp3= mqtt_topic_temp3.c_str();
+
+    
+    mqtt_topic_hum2 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/hum2";
+    MQTT_SENSOR_TOPIC_hum2= mqtt_topic_hum2.c_str();      
+    
+   
+    mqtt_topic_hum3 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/hum3";
+    MQTT_SENSOR_TOPIC_hum3= mqtt_topic_hum3.c_str();    
+
+   
+    mqtt_topic_lux1 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/lux1";
+    MQTT_SENSOR_TOPIC_lux1= mqtt_topic_lux1.c_str();
+    
+   
+    mqtt_topic_lux2 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/lux2";
+    MQTT_SENSOR_TOPIC_lux2= mqtt_topic_lux2.c_str();     
+
+  
+    mqtt_topic_gust = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/gust";
+    MQTT_SENSOR_TOPIC_gust= mqtt_topic_gust.c_str();
+    
+  
+    mqtt_topic_wind = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/wind";
+    MQTT_SENSOR_TOPIC_wind= mqtt_topic_wind.c_str();     
+
+  
+    mqtt_topic_gustmax = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/gust_max";
+    MQTT_SENSOR_TOPIC_gustmax= mqtt_topic_gustmax.c_str();
+    
+ 
+ //   mqtt_topic_wind_median = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/wind_median";
+ //   MQTT_SENSOR_TOPIC_wind_median= mqtt_topic_wind_median.c_str();        
+
+   
+//    mqtt_topic_wind_median2 = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/wind_median2";
+ //   MQTT_SENSOR_TOPIC_wind_median2= mqtt_topic_wind_median2.c_str();
+    
+    
+    mqtt_topic_rain = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/rain";
+    MQTT_SENSOR_TOPIC_rain= mqtt_topic_rain.c_str();    
+    
+   
+    mqtt_topic_room_humidity = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/room_humidity";
+    MQTT_SENSOR_TOPIC_room_humidity= mqtt_topic_room_humidity.c_str();
+    
+   
+    mqtt_topic_daylight = String(MQTT_BASE_TOPIC) + String(Client_Number) + "/daylight";
+    MQTT_SENSOR_TOPIC_daylight= mqtt_topic_daylight.c_str();
+    
+
+ 
+  //Temperature_offset
+    offset_temp=0;                                //Outdoor
+    if (Client_Number == "1") offset_temp=-2.7;   //Sleep; Updated: 31-01-21 old: -2.2
+    if (Client_Number == "2") offset_temp=-1.0;   //Office; Updated: 21-01-05 old: -1.25
+    if (Client_Number == "3") offset_temp=-1.30;  //Living; Updated: 21-01-21 old: -1.5
+    if (Client_Number == "4") offset_temp=-1.25;  //Lia
+    if (Client_Number == "5") offset_temp=-1.5;   //Fabio
+    if (Client_Number == "6") offset_temp=-1.25;  //Rooflake
+    if (Client_Number == "7") offset_temp=0;      //Tank
+    if (Client_Number == "8") offset_temp=-0.66;  //Cellar
+    if (Client_Number == "9") offset_temp=-0.60;  //Garage
+    if (Client_Number == "10")offset_temp=0;      //Technique
+    if (Client_Number == "11")offset_temp=-1.50;  //Bathroom Updated: 18-07-23 old: -1.0
+    if (Client_Number == "12")offset_temp=0;      //Check; Do not change
+
+  //Humidity_offset
+    offset_hum=0;                               //Outdoor
+    if (Client_Number == "1") offset_hum=11.5;  //Sleep; Updated: 31-01-21 old: 9.0
+    if (Client_Number == "2") offset_hum=5.0;   //Office; Updated: 21-01-05 old: 4.0
+    if (Client_Number == "3") offset_hum=5.5;   //Living; Updated: 21-01-21 old: 4.5
+    if (Client_Number == "4") offset_hum=3.7;   //Lia
+    if (Client_Number == "5") offset_hum=4.5;   //Fabio
+    if (Client_Number == "6") offset_hum=5.0;   //Rooflake
+    if (Client_Number == "7") offset_hum=0;     //Tank
+    if (Client_Number == "8") offset_hum=2.2;   //Cellar
+    if (Client_Number == "9") offset_hum=3.8;   //Garage
+    if (Client_Number == "10")offset_hum=0;     //Technique
+    if (Client_Number == "11")offset_hum=5.2;  //Bathroom  Updated: 18-07-23 old: 0.75
+    if (Client_Number == "12")offset_hum=0;     //Check; Do not change
+    
+  //Room Volume
+    room_volume=1;                                 //Outdoor
+    if (Client_Number == "1") room_volume=41.36;   //Sleep;
+    if (Client_Number == "2") room_volume=35.07;   //Office
+    if (Client_Number == "3") room_volume=251.42;  //Living;
+    if (Client_Number == "4") room_volume=48.22;   //Lia
+    if (Client_Number == "5") room_volume=46.83;   //Fabio
+    if (Client_Number == "6") room_volume=90.58;   //Rooflake
+    if (Client_Number == "7") room_volume=1;       //Tank
+    if (Client_Number == "8") room_volume=52.91;   //Cellar
+    if (Client_Number == "9") room_volume=132.99;  //Garage
+    if (Client_Number == "10")room_volume=32.89;   //Technique
+    if (Client_Number == "11")room_volume=35.34;   //Bathroom
+    if (Client_Number == "12")room_volume=35.07;   //Check; Value Office
+   
+  //Enable "Over the Air" WiFi Update (OTA Updates)
+  //SetHostname
+    ArduinoOTA.setHostname(room_name);
     ArduinoOTA.onStart([]() {
       String type;
       if (ArduinoOTA.getCommand() == U_FLASH) {
@@ -363,18 +596,18 @@ void setup() {
       } else { // U_FS
         type = "filesystem";
       }
-     // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+      // NOTE: if updating FS this would be the place to unmount FS using FS.end()
       Serial.println("Start updating " + type);
     });
-   
-
-    
+       
     ArduinoOTA.onEnd([]() {
       Serial.println("\nEnd");
     });
+    
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
       Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     });
+
     ArduinoOTA.onError([](ota_error_t error) {
       Serial.printf("Error[%u]: ", error);
       if (error == OTA_AUTH_ERROR) {
@@ -389,7 +622,9 @@ void setup() {
         Serial.println("End Failed");
       }
     });
+    
     ArduinoOTA.begin();
+
     Serial.println("OTA Update Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
@@ -401,9 +636,22 @@ void setup() {
   //Bibliotheken starten
     Wire.begin(SDA_PIN, SCL_PIN);  //I2C Bus
     Wire.setClock(100000); //I2C Bus frequency in Hz
+    
+//if (Client_Number == "10") write_analog_output(50, 3);  //Heizung ausschalten 0-1024 ---> 50 = 0,5V
+
+    
+    EEPROM.begin(512);
+    
+
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.clearDisplay();
+    display.display();
+
+    ac.begin();         //IR Air Conditioning IR LED Output
     dht.begin();        //Asong2302 DHT22
     sht31.begin(0x44); //Sensirion SHT31
-    bme.begin();  //Bosch BMP388
+    sht31_2.begin(0x45); //Sensirion SHT31
+    bme.begin_I2C();  //Bosch BMP388
     DS18B20.begin(); // DS18B20
     DS18B20.setResolution(temperaturePrecision);
     mcp9808.begin();  //MCP9808 0x18
@@ -417,11 +665,26 @@ void setup() {
     lightMeter.setMTreg(254);
     lightMeter2.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2); //BH1750 Light Sensor2
     lightMeter2.setMTreg(254);
+        // CONTINUOUS_HIGH_RES_MODE_2: Factor: 2
+        // Other Modes: Factor: 1
+        // Max Value 16 bit : 65536 /(1.2 * Factor *(MTREG /69))
+        // Calculation Here: 65536 /(1.2 * 2 *(254 /69)) = 7417 lux
+
+    
+    if (Client_Number == "13") {
+      pinMode(D2, OUTPUT);    
+      digitalWrite(D2, LOW);    
+    }
+
+
     pinMode(pwm_pin, INPUT);
     pinMode(input_pin1, INPUT_PULLUP);//
-    pinMode(input_pin2, INPUT);//
+     if (Client_Number != "14"){
+       pinMode(input_pin1, INPUT_PULLUP);
+     }   //Check; Value OfficepinMode(input_pin2, INPUT);//
+    
     if (Client_Number != "10"){
-      attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,RISING);
+      attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); //was RISING
     }
     else attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING);
     
@@ -442,8 +705,6 @@ void setup() {
   //Scan for Maxim 1-Wire Bus Devices
     lookUp_for_DS18B20_Sensors();
   
-
-
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
     Serial.print("Signal Quality: ");
@@ -455,30 +716,59 @@ void setup() {
   //get data from Wunderground
     //Wunderground_read_station();
 
-  // init the MQTT connection
-    client.setServer(MQTT_SERVER_IP, MQTT_SERVER_PORT);
-    client.setCallback(callback);
-    if (Client_Number == "0") MQTT_CLIENT_ID = MQTT_CLIENT_ID0;
-    if (Client_Number == "1") MQTT_CLIENT_ID = MQTT_CLIENT_ID1;
-    if (Client_Number == "2") MQTT_CLIENT_ID = MQTT_CLIENT_ID2;
-    if (Client_Number == "3") MQTT_CLIENT_ID = MQTT_CLIENT_ID3;
-    if (Client_Number == "4") MQTT_CLIENT_ID = MQTT_CLIENT_ID4;
-    if (Client_Number == "5") MQTT_CLIENT_ID = MQTT_CLIENT_ID5;
-    if (Client_Number == "6") MQTT_CLIENT_ID = MQTT_CLIENT_ID6;
-    if (Client_Number == "7") MQTT_CLIENT_ID = MQTT_CLIENT_ID7;
-    if (Client_Number == "8") MQTT_CLIENT_ID = MQTT_CLIENT_ID8;
-    if (Client_Number == "9") MQTT_CLIENT_ID = MQTT_CLIENT_ID9;
-    if (Client_Number == "10")MQTT_CLIENT_ID = MQTT_CLIENT_ID10;
-    if (Client_Number == "11")MQTT_CLIENT_ID = MQTT_CLIENT_ID11;
-    if (Client_Number == "12")MQTT_CLIENT_ID = MQTT_CLIENT_ID12;
-
-  
-   
-  //Print Headline of Measurements
+ //Print Headline of Measurements
+    Serial.print("My Client number is "); Serial.println(Client_Number);
     Serial.println();
     Serial.println("MCP9808\tDS18B20\tDHT22\tSHT31\tBMP280\t\tAverage\tDHT22\tSHT31\tAverage\tTaupunkt\tAbs_Feuchte\tBMP280\tBMP280\tBMP280\tCycletime\tBodentemp\tCO2\tWiFi\tMQTT\tTime");
 
+  // init the MQTT connection
+    client.setServer(MQTT_SERVER_IP, MQTT_SERVER_PORT);
+    client.setCallback(callback);
 
+   //Connect to MQTT
+    MQTT_connect();
+    client.loop();
+   
+   //Sent MQTT Auto Discovery Topic to MQTT Broker, to realize Auto Discovery in HomeAssistant
+  //sendMQTTDiscoveryMsg(String Sensor_kind ,  String unit ,  String Device_class ,  String Value_template ,  String State_Topic); 
+    sendMQTTDiscoveryMsg("Temperature" ,  "°C" ,  "TEMPERATURE" ,  "{{value_json.T}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    sendMQTTDiscoveryMsg("Humidity" ,  "%" ,  "HUMIDITY" ,  "{{value_json.H}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    sendMQTTDiscoveryMsg("DewPoint" ,  "°C" ,  "TEMPERATURE" ,  "{{value_json.D}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    sendMQTTDiscoveryMsg("Abs_Hum" ,  "g/m³" ,  "" ,  "{{value_json.A}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    sendMQTTDiscoveryMsg("Brightness" ,  "lx" ,  "ILLUMINANCE" ,  "{{value_json.L}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    sendMQTTDiscoveryMsg("Temperature2" ,  "°C" ,  "TEMPERATURE" ,  "" ,  String(MQTT_SENSOR_TOPIC_temp2)); 
+    sendMQTTDiscoveryMsg("Humidity2" ,  "%" ,  "HUMIDITY" ,  "" ,  String(MQTT_SENSOR_TOPIC_hum2));     
+    if (Client_Number != "0") sendMQTTDiscoveryMsg("Room_Hum" ,  "g" ,  "WEIGHT" ,  "" ,  String(MQTT_SENSOR_TOPIC_room_humidity));   
+    if (Client_Number != "0") sendMQTTDiscoveryMsg("CO2_Room" , "ppm" ,  "CARBON_DIOXIDE" ,  "{{value_json.C}}" ,  String(MQTT_SENSOR_TOPIC)); 
+    
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Gustmax" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_gustmax)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Gust" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_gust)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Wind" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Temp3" , "°C" ,  "TEMPERATURE" ,  "" ,  String(MQTT_SENSOR_TOPIC_temp3)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Hum3" ,  "%" ,  "HUMIDITY" ,  "" ,  String(MQTT_SENSOR_TOPIC_hum3)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("AirPressure" ,  "mbar" ,  "PRESSURE" ,  "{{value_json.P}}" ,  String(MQTT_SENSOR_TOPIC));     
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Lux1" , "lx" ,  "ILLUMINANCE" ,  "" ,  String(MQTT_SENSOR_TOPIC_lux1)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Lux2" , "lx" ,  "ILLUMINANCE" ,  "" ,  String(MQTT_SENSOR_TOPIC_lux2)); 
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain" , "mm" ,  "" ,  "{{(((value|float/12)-86)*(-1))|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));   
+ //   if (Client_Number == "0") sendMQTTDiscoveryMsg("Gust" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_gust));     
+ //   if (Client_Number == "0") sendMQTTDiscoveryMsg("Wind" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind));     
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("W_med" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind_median));    
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("W_med2" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind_median2));     
+   // if (Client_Number != "0") sendMQTTDiscoveryMsg("W_med" ,  "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind_median));                
+    
+  if (Client_Number == "13") client.publish("Sprudler/switch", publishtopic0, true);  
+  if (Client_Number == "13") client.publish("Sprudler/available", publishtopic1, true);  
+
+
+
+    
+ //   sendMQTTDiscoveryMsg("Pressure" ,  "mbar" ,  "pressure" ,  "{{ value_json.P }}" ,  String(MQTT_SENSOR_TOPIC)); 
+ //   sendMQTTDiscoveryMsg("Pressure" ,  "mbar" ,  "pressure" ,  "{{ value_json.P }}" ,  String(MQTT_SENSOR_TOPIC)); 
+
+
+   start_water = 0;
+   start_water_override = 0;
+   
     
 }   // End of Void Setup() !!!
 
@@ -488,7 +778,9 @@ void setup() {
 
 void loop() {
   
-  
+
+unsigned long time1 = millis();
+
   //Check if WIFI Connection is alive
     if(WiFi.status() != WL_CONNECTED) {
       //Connect to Wifi
@@ -498,33 +790,89 @@ void loop() {
     }
 
   // Check for OTA Updates, first deattach interrupts, to avaoid failurs.
-    detachInterrupt(digitalPinToInterrupt(input_pin1));
-    //detachInterrupt(digitalPinToInterrupt(input_pin2));
+    if (Client_Number != "0"){
+      detachInterrupt(digitalPinToInterrupt(input_pin1));
+      //detachInterrupt(digitalPinToInterrupt(input_pin2));
 
-    ArduinoOTA.handle();
-    
-    attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,RISING);
-    //attachInterrupt(digitalPinToInterrupt(input_pin2),Interrupt,FALLING);
-    
-
+      ArduinoOTA.handle();
+  
+      attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); // was RISING
+        //attachInterrupt(digitalPinToInterrupt(input_pin2),Interrupt,FALLING);
+    }
  
   //Connect to MQTT Service and check in each loop if its connected
     if (!client.connected()) {
       MQTT_connect();
     }
     client.loop();
-//   if (digitalRead(input_pin2) != HIGH) i_wind = i_wind + 10;
-//   if (digitalRead(input_pin2) != LOW) i_wind = i_wind + 100;
+  //   if (digitalRead(input_pin2) != HIGH) i_wind = i_wind + 10;
+  //   if (digitalRead(input_pin2) != LOW) i_wind = i_wind + 100;
+
+
+ unsigned long time2 = millis();
+ 
+//falls Interrupt geschehen ist, wasser starten, und Interrupt zurücksetzen              
+ if (Client_Number == "13") {
+    digitalWrite(D2, LOW);  
+    client.publish("Sprudler/available", publishtopic1, true); 
+    if(analogRead(A0) <= 200)start_water = 1;
+    if(start_water_override == 1) {
+      water_control();
+        start_water_override = 0;
+    }
+    if(start_water == 1) {
+      if(analogRead(A0) >= 200) {
+        water_control();
+        start_water = 0;
+      }
+    }
+    
+ }
 
     //declaration of variables and reading out temperatures and humidity from all sensors
+  if (Client_Number != "13") {
     DS18B20.requestTemperatures();
     maximtemp1 = DS18B20.getTempCByIndex(0);
     maximtemp2 = DS18B20.getTempCByIndex(1);
     dht_temp = dht.readTemperature();
-    sht31_temp = sht31.readTemperature() + offset_temp;
+    dht_hum = dht.readHumidity();
     if (mcp == true && mcp9808_temp >= -100) mcp9808_temp = mcp9808.readTempC();
-    float dht_hum = dht.readHumidity();
-    float sht31_humidity = sht31.readHumidity() + offset_hum;
+
+
+  }
+  
+  unsigned long time3 = millis();
+  
+    if (sht1_found == true) sht31_temp = sht31.readTemperature() + offset_temp;
+    if (sht1_found == true) sht31_humidity = sht31.readHumidity() + offset_hum;
+    if (sht2_found == true) sht31_2_temp = sht31_2.readTemperature() + offset_temp - 0.15;
+    if (sht2_found == true) sht31_2_humidity = sht31_2.readHumidity() + offset_hum;
+    if (sht2_found == false) sht31_2_temp = 0.0 / 0.0;
+    if (sht2_found == false) sht31_2_humidity = 0.0 / 0.0;
+  unsigned long time4 = millis();
+
+    analog_readings = analogRead(A0);
+    
+  unsigned long time5 = millis();
+  
+      
+      if(sht31_humidity >= sht31_2_humidity) {
+        sht31_3_humidity = sht31_humidity;
+      }else{
+        sht31_3_humidity = sht31_2_humidity;
+      }
+  
+    if (isnan(sht31_2_temp)){
+      sht31_3_temp = sht31_temp;    
+      sht31_2_temp = 0;
+    }else{
+      if(sht31_temp >= sht31_2_temp) {
+        sht31_3_temp = sht31_2_temp;
+      }else{
+        sht31_3_temp = sht31_temp;     
+      }
+    }
+
     
     bme.setTemperatureOversampling(BMP3_OVERSAMPLING_32X);
     bme.setPressureOversampling(BMP3_OVERSAMPLING_32X);
@@ -533,11 +881,94 @@ void loop() {
     float bmp_pressure = bme.pressure/100.0; //aktueller Luftdruck in mbar
     float bmp_hoehe = bme.readAltitude(1024.00);
     float bmp_temp = bme.temperature;
-    lux = lightMeter.readLightLevel();
-    lux2 = lightMeter2.readLightLevel();
 
+   
+    
+    // Change resolution of BH1750 Light Sensor, to fit better into 16 values
+    // Formula measurement Range: 65536 / ( 2.4 *(MTreg / 69))
+    // Example MTreg= 254: 65536 / 8.835 = 7417
+    // Example MTreg= 32: 65536 / 1.113 = 58880
+    
+    if (lux1 >=1000.0) {
+      if (light1_found == true) lightMeter.setMTreg(32);
+    }else{
+      if (light1_found == true) lightMeter.setMTreg(254);
+    }
+    
+    if (lux2 >=1000.0) {
+      if (light2_found == true) lightMeter2.setMTreg(32);
+    }else{
+      if (light2_found == true) lightMeter2.setMTreg(254);
+    }
+
+
+if (light1_found == true) lux1 = lightMeter.readLightLevel();
+if (light2_found == true) lux2 = lightMeter2.readLightLevel();
+
+    if (lux1 >= 58500.0) lux1 = 58500.0;
+    if (lux2 >= 58500.0) lux2 = 58500.0;
+    
+    // Schmitt Trigger for Daylight
+    if (lux1 >=0.1 && lux2 >=0.1) {
+      if (daylight == 1 && new_daylight_possible == true) {
+          current_runtime = millis();
+          //new_daylight_possible = false;
+          daylight = 2;
+          daylighttopic[0] = 'O';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[1] = 'N';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[2] = 'N';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[3] = '\0';
+          //daylighttopic[4] ---> Last char is invalid. see: https://www.arduino.cc/reference/de/language/variables/data-types/array/
+      }
+      
+      if (daylight ==2 || daylight ==0) {
+          //new_daylight_possible = false;
+          daylight = 2;
+          daylighttopic[0] = 'O';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[1] = 'N';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[2] = 'N';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[3] = '\0';
+          //daylighttopic[4] ---> Last char is invalid. see: https://www.arduino.cc/reference/de/language/variables/data-types/array/
+      }
+      
+    }else{
+    
+      if (daylight == 2 && new_daylight_possible == true) {
+          current_runtime = millis();
+          //new_daylight_possible = false;
+          daylight = 1;
+          daylighttopic[0] = 'O';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[1] = 'F';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[2] = 'F';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[3] = '\0';
+          //daylighttopic[4] ---> Last char is invalid. see: https://www.arduino.cc/reference/de/language/variables/data-types/array/
+      }
+      if (daylight <=1) {
+          //new_daylight_possible = false;
+          daylight = 1;
+          daylighttopic[0] = 'O';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[1] = 'F';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[2] = 'F';  // einfache Anfürhungszeichen verwenden
+          daylighttopic[3] = '\0';
+          //daylighttopic[4] ---> Last char is invalid. see: https://www.arduino.cc/reference/de/language/variables/data-types/array/
+      }
+    }
+
+ //   if (millis() - current_runtime >= 21000000) new_daylight_possible = true;
+    //if (lux2>=0.2) new_daylight_possible = true;
+       
+    if (isnan(lux1)) lux1 = 0;
+    if (isnan(lux2)) lux2 = 0;
+    if (lux1 <= 0) lux1 = 0;
     if (lux2 <= 0) lux2 = 0;
-    lux = lux + lux2;
+    //lux = (lux1 + lux2)/2;
+   
+    if(lux1 >= lux2) {
+        lux = lux1;
+      }else{
+        lux = lux2;
+      }
+    
     
     //lux_vl61 = vl.readLux(VL6180X_ALS_GAIN_5);
     //range_vl61 = vl.readRange();
@@ -550,48 +981,60 @@ void loop() {
 
 
 
-
-    if (Client_Number == "10"){
+ 
          
      //Get current Time from NTP Server
         timeClient.update();
-        time_t utcCalc = timeClient.getEpochTime();
+        utcCalc = timeClient.getEpochTime();
+        today = day(utcCalc);
         int summer_offset = 0;  //offset in Wintetime
         if (summertime(year(utcCalc), month(utcCalc), day(utcCalc), hour(utcCalc), 1)) summer_offset=3600; //create offset in summertime
-        timeClient.setTimeOffset(3600 + summer_offset);
-        //timeClient.update();
+        timeClient.setTimeOffset(3600 + summer_offset); 
         utcCalc = timeClient.getEpochTime();
+        utcCalc2 = timeClient.getFormattedTime();
         
+       unsigned long time6 = millis();
+        
+    //Resets:
+    if (Client_Number == "10"){
+             
        //Reset durchführen einmal pro Tag
        if (hour(utcCalc) == 0){         //Wenn es ein uhr nachts ist
      
           if (reset_day == false){
+            
+            client.publish("homeassistant/sensor/energy/last_day",daytopic ,true);
             energy_day = 0;
             reset_day =true;
           }
             
        }
-    
+
+  
+      if (hour(utcCalc) == 1) reset_day = false;
     
        //Reset durchführen einmal pro Monat
        if (day(utcCalc) == 1){ 
         if (hour(utcCalc) == 0){ 
           if (reset_month == false){
+            client.publish("homeassistant/sensor/energy/last_month",monthtopic ,true);
             energy_month = 0;
             reset_month == true;
           }
         }
        }
-    }
-
-
-  
-    if (millis() >= 10800000){       //Wenn die Laufzeit des Geräts größer ist als 66,66 Minuten (4.000.000 Milliseconds)
-      ESP.restart();                //restart ESP8266
+       
+       if (day(utcCalc) == 1) reset_month = false;
+       
+    }else{
+      if (millis() >= 21600000 + offset_restart){       //Wenn die Laufzeit des Geräts größer ist als 6 Stunden dann Reset
+        ESP.restart();                //restart ESP8266
       }
+    }
   // }
 
- client.loop();     
+ client.loop();  
+    
       
   // loop through each Maxim DS18B20 device, print out temperature
     /*
@@ -622,11 +1065,11 @@ void loop() {
       dht_temp = 0;
     }
    
-    if (isnan(sht31_temp)) {
+    if (isnan(sht31_3_temp)) {
       ++ausfaelle;
-      sht31_temp = 0;
+      sht31_3_temp = 0;
     }
-   
+  
     if (ausfaelle == 4){
       temp_average =0.01;
     }
@@ -642,14 +1085,16 @@ void loop() {
  
    
   //Bestimmung der Druchschnittsfeuchte aller Luftfeuchitgkeitssensoren
-    hum_average = (dht_hum + sht31_humidity)/2;
+    hum_average = (dht_hum + sht31_3_humidity) / 2;
     if (isnan(dht_hum)) {
-      hum_average = sht31_humidity;
+      hum_average = sht31_3_humidity;
       } 
-    if (isnan(sht31_humidity)) {
+    if (isnan(sht31_3_humidity)) {
       hum_average = dht_hum;
       } 
-
+    if (isnan(sht31_2_humidity)) {
+      sht31_2_humidity = 0;
+      } 
   //Bestimmung der Min Max werte:
    //morgens
     maxh = _max(maxh, hum_average);
@@ -716,11 +1161,22 @@ void loop() {
 
   //Bestimmung der absoluten Luftfeuchigkeit
   Absolute_Feuchte_mittel = Absolute_Feuchte_berechnen(temp_average, hum_average);
+
+  //calculate absolute humidity roomspecific
+  room_humidity = room_volume * Absolute_Feuchte_mittel;
+
+
 client.loop();
+
 // Bestimmung des CO2 Werts
     if (Client_Number != "0"){ 
       if (millis() >= 25000){       //Wenn die Laufzeit des Geräts größer ist als 22sec MH Z19b CO2 Sensor needs 20sec boot time
+        if (Client_Number == "17") {
+          read_periode();
+        }
+        else {
         read_CO2_PWM();
+        }
       }
       else {
         co2_pwm = 410;
@@ -733,7 +1189,8 @@ client.loop();
 
   //Bestimmung des Atmosphärischen Drucks bezogen auf Meereshöhe.
     
-client.loop();    
+  client.loop();    
+  
 
     //Bodenwetterkarte > QFF: Der Ortsluftdruck wird mit Hilfe der vor Ort herrschenden Temperatur auf Meereshöhe runter gerechnet.
     //Fliegerei > QNH: Der Ortsluftdruck wird mit Hilfe der ICAO-Standardatmosphäre auf Meerehöhe runter gerechnet.
@@ -748,7 +1205,7 @@ client.loop();
     //- Nachteil; Die runter gerechneten Luftdruckwerte entsprechen nicht der Wahrheit, da das "echte" Wetter meist von der ICAO-Standardatmosphäre abweicht.
     //=> Für georndete Flughöhen geeignet.
    
-    float Sea_level = 510.1;  //Meereshöhe + Plattformhöhe des Spielturms: 508,6m + 1,5m = 510.1m
+    float Sea_level = 510.0;  //Meereshöhe + Plattformhöhe des Spielturms: 508,6m + 1,4m = 510.0m
     float T = temp_average ;  //Außentemperatur nötig zur Berechnung des korrekten Drucks bezogen auf Meereshöhe
     float Th = T + 273.15;
     
@@ -761,20 +1218,18 @@ client.loop();
     //atmospheric_pressure = (bmp_pressure * exp (Sea_level / (29.3 * (T + 273.15)))) ; //QFF old
     float Sea_level_pressure = (bmp_pressure / pow((1 - (Sea_level / 44330)),5.255)); //QNH (for heith measurement)
     float bmp_hoehe2 = 44330.0 * (1.0 - pow(bmp_pressure / Sea_level_pressure, 0.1903));
+
+  if (atmospheric_pressure <=960.0) atmospheric_pressure = 1000.0;
    
   //Bestimmen der Programmlaufzeit
     time_new = millis();
-    float cycle_time = time_new - time_old;
+    cycle_time = time_new - time_old;
     time_old = millis();
 
-  //Messen der Windgeschwindigkeit
-  if (Client_Number == "0") {
-    wind();
-    wind_sum_up();
-  }
+ 
     
  client.loop();
- 
+ unsigned long time7 = millis();
   //Print all Data to Serial Monitor
     Serial.print(mcp9808_temp); Serial.print("°C"); Serial.print("\t");
     Serial.print(maximtemp1); Serial.print("°C"); Serial.print("\t");
@@ -799,26 +1254,172 @@ client.loop();
     
     Serial.print(maximtemp2); Serial.print("°C"); Serial.print("\t");
     Serial.print(co2_pwm); Serial.print("ppm"); Serial.print("\t");
-    Serial.print(WiFi.status()); Serial.print(" "); Serial.print("\t");
-    Serial.print(ausfaelle); Serial.print(""); Serial.print("\t");
+    Serial.print("ADC Value: "); Serial.print(analogRead(A0)); Serial.print("\t");
+   // Serial.print(WiFi.status()); Serial.print(" "); Serial.print("\t");
+    //Serial.print(ausfaelle); Serial.print(""); Serial.print("\t");
     Serial.print(lux); Serial.print("lx"); Serial.print("\t");
     Serial.print(lux2); Serial.print("lx2"); Serial.print("\t");
     Serial.print(wind_gust); Serial.print(" gust km/h"); Serial.print("\t");
-    Serial.print(wind_avg); Serial.print(" avg km/h"); Serial.print("\t");
+    Serial.print(wind_mittelwert); Serial.print(" avg km/h"); Serial.print("\t");
     Serial.print(i_wind2); Serial.print("Pulse"); Serial.print("\t");
     //Serial.println();
-//    Serial.print(lux_vl61); Serial.print("lx_ST"); Serial.print("\t");
+    Serial.print(utcCalc);  Serial.print("utc "); Serial.print("\t");
+    Serial.print(utcCalc2);  Serial.print("utc2 "); Serial.print("\t");
+  //  Serial.print(utcCalc3);  Serial.print("utc3 "); Serial.print("\t");
+    Serial.print(millis());  Serial.print("millis"); Serial.print("\t");
+
+    Serial.print(lux_vl61); Serial.print("lx_ST"); Serial.print("\t");
+
+
+    unsigned long time8 = millis();
+ 
+
+    
 //    Serial.print(range_vl61); Serial.print("mm"); Serial.print("\t");
 //    Serial.print(range_vl53); Serial.print("mm"); Serial.print("\t");
 //    Serial.print(MQTT_CLIENT_ID); Serial.print(""); Serial.print("\t");
    
-    
+   
+    Serial.println(); 
+
+   client.loop();
+
+
+  //falls Interrupt geschehen ist, wasser starten, und Interrupt zurücksetzen
+  if (Client_Number == "13"){
+    if(analogRead(A0) <= 200)start_water = 1; 
+    if(start_water_override == 1) {
+      water_control();
+      start_water_override = 0;
+    }
+    if(start_water == 1) {
+      if(analogRead(A0) >= 200) {
+        water_control();
+        start_water = 0;
+      }
+    }
+  }
+
+  if (display_found = true){
+      // FreeMono12pt7b.h		
+      // FreeSansBoldOblique12pt7b.h
+      // FreeMono18pt7b.h		
+      // FreeSansBoldOblique18pt7b.h
+      // FreeMono24pt7b.h		
+      // FreeSansBoldOblique24pt7b.h
+      // FreeMono9pt7b.h			
+      // FreeSansBoldOblique9pt7b.h
+      // FreeMonoBold12pt7b.h		
+      // FreeSansOblique12pt7b.h
+      // FreeMonoBold18pt7b.h		
+      // FreeSansOblique18pt7b.h
+      // FreeMonoBold24pt7b.h		
+      // FreeSansOblique24pt7b.h
+      // FreeMonoBold9pt7b.h		
+      // FreeSansOblique9pt7b.h
+      // FreeMonoBoldOblique12pt7b.h	
+      // FreeSerif12pt7b.h
+      // FreeMonoBoldOblique18pt7b.h	
+      // FreeSerif18pt7b.h
+      // FreeMonoBoldOblique24pt7b.h	
+      // FreeSerif24pt7b.h
+      // FreeMonoBoldOblique9pt7b.h	
+      // FreeSerif9pt7b.h
+      // FreeMonoOblique12pt7b.h		
+      // FreeSerifBold12pt7b.h
+      // FreeMonoOblique18pt7b.h		
+      // FreeSerifBold18pt7b.h
+      // FreeMonoOblique24pt7b.h		
+      // FreeSerifBold24pt7b.h
+      // FreeMonoOblique9pt7b.h		
+      // FreeSerifBold9pt7b.h
+      // FreeSans12pt7b.h		
+      // FreeSerifBoldItalic12pt7b.h
+      // FreeSans18pt7b.h		
+      // FreeSerifBoldItalic18pt7b.h
+      // FreeSans24pt7b.h		
+      // FreeSerifBoldItalic24pt7b.h
+      // FreeSans9pt7b.h			            <-------    <------
+      // FreeSerifBoldItalic9pt7b.h
+      // FreeSansBold12pt7b.h		
+      // FreeSerifItalic12pt7b.h
+      // FreeSansBold18pt7b.h		
+      // FreeSerifItalic18pt7b.h
+      // FreeSansBold24pt7b.h		
+      // FreeSerifItalic24pt7b.h
+      // FreeSansBold9pt7b.h		
+      // FreeSerifItalic9pt7b.h
+      
+      // write Data to display
+       
+        // display.clearDisplay();
+        // //display.setFont(&FreeSans9pt7b);
+        // display.setTextSize(1);                       // Normal 1:1 pixel scale
+        // display.setTextColor(SSD1306_WHITE);          // Draw white text
+        // display.setCursor(0,0);                       // first line starting here
+        // display.print("T: "); display.print(sht31_3_temp);//(temp_average); * //*  
+        // display.print(char(247)); display.print("C");
+        // display.setCursor(0,0+7+3);                   // after first line = 7 pixel( size of first line) + 3 pixel gap
+        // display.print("H: "); display.print(hum_average);  display.print("%");
+        // display.setCursor(0,7+7+3+3);                 // after 2nd line = 2x7 pixel + 2x3 pixel gap
+        // //display.print("Time: "); display.print(utcCalc2); 
+        // display.print("Dew: "); display.print(Taupunkt_mittel); display.print(char(247)); display.print("C");
+        // display.setCursor(0,7+7+7+3+3+3);             // after 3rd line =  3x7 pixel + 3x3 pixel gap
+        //   // display.print("Abs Hum: "); display.print(Absolute_Feuchte_mittel); display.print("g/m"); display.print(char(252));
+       
+        // utcCalc2 = timeClient.getFormattedTime();  
+       
+        // display.setCursor(0,7+7+7+7+3+3+3+3);         // after 4th line =  4x7 pixel + 4x3 pixel gap
+        // display.print("Room Hum: "); display.print(room_humidity); display.print("ml"); 
+        //    //display.print("Time: "); display.print(hour(utcCalc));   display.print(":");  display.print(minute(utcCalc)); display.print(":");  display.print(second(utcCalc)); 
+        // display.setCursor(0,7+7+7+7+7+3+3+3+3+3);         // after 5th line =  5x7 pixel + 5x3 pixel gap
+        // display.print("Time: "); display.print(utcCalc2); 
+        // display.setCursor(0,7+7+7+7+7+7+3+3+3+3+3+3);         // after 5th line =  5x7 pixel + 5x3 pixel gap
+        //     //display.print("test/Z7");
+        // display.display();
+          
+       display.clearDisplay();
+        display.setFont(&FreeSans9pt7b);
+        //display.setFont(&FreeSerifOblique9pt7b);
+        display.setTextSize(1);                       // Normal 1:1 pixel scale
+        display.setTextColor(SSD1306_WHITE);          // Draw white text
+        display.setCursor(0,12);                       // first line starting here
+        display.print(""); display.print(sht31_4_temp);//(temp_average); * //*  
+        display.print(char(247)); display.print("°C");
+        display.setCursor(0,0+24+3);                   // after first line = 7 pixel( size of first line) + 3 pixel gap
+        display.print(""); display.print(sht31_4_humidity);  display.print("%");
+        display.setCursor(0,36+3+3);                 // after 2nd line = 2x7 pixel + 2x3 pixel gap
+        //display.print("Time: "); display.print(utcCalc2); 
+        //display.print("Dew: "); display.print(Taupunkt_mittel); display.print(char(247)); display.print("C");
+        //display.setCursor(0,14+14+14+3+3+3);             // after 3rd line =  3x7 pixel + 3x3 pixel gap
+          // display.print("Abs Hum: "); display.print(Absolute_Feuchte_mittel); display.print("g/m"); display.print(char(252));
+       
+        //utcCalc2 = timeClient.getFormattedTime();  
+       //int currentminutes = timeClient.getMinutes();
+        //display.setCursor(0,7+7+7+7+3+3+3+3);         // after 4th line =  4x7 pixel + 4x3 pixel gap
+       // display.print("Room Hum: "); display.print(room_humidity); display.print("ml"); 
+           //display.print("Time: "); display.print(hour(utcCalc));   display.print(":");  display.print(minute(utcCalc)); display.print(":");  display.print(second(utcCalc)); 
+        //display.setCursor(0,7+7+7+7+7+3+3+3+3+3);         // after 5th line =  5x7 pixel + 5x3 pixel gap
+      if (timeClient.getMinutes() <= 9) {
+        display.print(""); display.print(timeClient.getHours()); display.print(":0"); display.print(timeClient.getMinutes()); 
+      } 
+      if (timeClient.getMinutes() >= 10){
+        display.print(""); display.print(timeClient.getHours()); display.print(":"); display.print(timeClient.getMinutes()); 
+      }  
+        display.setCursor(0,48+3+3+3);         // after 5th line =  5x7 pixel + 5x3 pixel gap
+            display.print(room_name);
+        display.display();
+
+  }
+
+
+
   //long too_long = ((REPORT_INTERVAL * 1000) + 10000);
   //if (cycle_time >= too_long){
   //  ESP.restart();
   //}
   
-  
+ 
   //Analogwerte Ausgeben
     //write_analog_output(100,0);
     //write_analog_output(200,1);
@@ -826,33 +1427,106 @@ client.loop();
     //write_analog_output(400,3);
     
 
-    
+    client.loop();
+   
  
       time_new5 = millis();
+      time_new6 = millis();
       float cycle_time4 = time_new5 - time_old5;
+      cycle_time5 = time_new6 - time_old6;
+      
+      factor = 1000;
+      if (Client_Number == "0")  factor = 5000;
+      if (Client_Number == "1")  factor = 1000;
+      if (Client_Number == "2")  factor = 1000;
+      if (Client_Number == "3")  factor = 1000;
+      if (Client_Number == "4")  factor = 1000;
+      if (Client_Number == "5")  factor = 1000;
+      if (Client_Number == "6")  factor = 1000;
+      if (Client_Number == "7")  factor = 1000;
+      if (Client_Number == "8")  factor = 1000;
+      if (Client_Number == "9")  factor = 1000;
+      if (Client_Number == "10") factor = 1000;
+      if (Client_Number == "11") factor = 1000;
+      if (Client_Number == "12") factor = 1000;
+      if (Client_Number == "13") factor = 1000;
+      if (Client_Number == "14") factor = 500;
+      if (Client_Number == "15") factor = 1000;
+      if (Client_Number == "16") factor = 1000;
+      if (Client_Number == "17") factor = 100;
+      if (Client_Number == "18") factor = 1000;
+
+
+
+
+
+ //Messen der Windgeschwindigkeit
+
+ 
+      if (cycle_time5 >= wind_factor *1000 ){               //Wind gusts definition: need at least 3sec sum up time
+        if (Client_Number == "0"){
+          wind();
+          wind_sum_up();
+          time_old6 = time_new6;
+           
+            
+            //data_transfered = true;
+
+        }
+      }  
+
+
+
+
+
+
+
+
 
       
-      if (cycle_time4 >= 1000 * REPORT_INTERVAL){     //Diese Befehle alle x sekunden durchführen
+      if (cycle_time4 >= factor * REPORT_INTERVAL){     //wenn Factor =1000 wird Dieser Befehle alle 18 sekunden ausgeführt; 
         
         if (Client_Number != "10"){
-          if (millis() >= 40000){ 
-            publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, wind_gust_max, wind_avg_avg);    // Publish Data to MQTT Broker for all sensors expect technique
+          if (millis() >= 30000){ 
+            if (Client_Number != "0") detachInterrupt(digitalPinToInterrupt(input_pin1));
+            if (Client_Number != "0") publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, wind_gust, wind_mittelwert);    // Publish Data to MQTT Broker for all sensors expect technique
+            if (Client_Number != "0") attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); //was RISING
+            //data_transfered = true;
+
           }
-        }
-        else {
+        }else{
           stromzaehler();
-          publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, power_avg, energy_avg);         // Publish Data to MQTT Broker for technique Sensor
+          publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, power_avg, power_avg);         // Publish Data to MQTT Broker for technique Sensor
         }
         
-      data_published();    
-        
+         
+      
       time_old5 = time_new5;
       }
       else{
           Serial.print("No_MQTT_Transfer"); Serial.print("\t");
       }
-   
- 
+
+
+
+    
+//    if (cycle_time5 >= 1000 * REPORT_INTERVAL){
+//        if (Client_Number == "0"){
+//          if (millis() >= 30000){ 
+//            if (data_transfered == false){
+//              detachInterrupt(digitalPinToInterrupt(input_pin1));
+//              publishData2();    // Publish Data to MQTT Broker 
+//              data_published(); 
+//              attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING);  //was RISING
+//            }
+//          data_transfered = false;
+//          time_old6 = time_new6;
+//        }
+//      }
+//    }  
+
+           
+ client.loop();
  Serial.println(); 
  
 // Post measurement Data to Wunderground Station
@@ -864,6 +1538,7 @@ client.loop();
       if (cycle_time3 >= 3 * 60000){ 
           
           Wunderground_post_data();
+          
         //Wunderground Stationsvergleich
         //Wunderground_read_station();
         Serial.print("Wunderground"); Serial.print("\t");
@@ -889,13 +1564,55 @@ client.loop();
 //    Serial.println(timeClient.getFormattedTime());
 
 
+
   //abwarten des angegebenen Updateintervalls
-   if (cycle_time < 6000) delay(4100);
+  if (cycle_time < 6000) {
+    //delay(1100);   //Never change this 4100ms adder!!!
+    client.loop();  
+    //delay(1000);   //Never change this 4100ms adder!!!
+    //client.loop();    
+    //client.publish("Test/Test",publishtopic0);     
+    //delay(1000);   //Never change this 4100ms adder!!!
+    //client.loop();  
+    //delay(1000);   //Never change this 4100ms adder!!!
+    //client.loop();   
+    //delay(1000);   //Never change this 4100ms adder!!!
+    //client.loop();      
+    //client.publish("Test/Test",publishtopic1);      
     //int cnt = REPORT_INTERVAL; //- (cycle_time - REPORT_INTERVAL);
     //while(cnt--) delay(1000);
-  
-   
+}
+
+    unsigned long time9 = millis();
+    Serial.print(" time1-2: "); Serial.print(time2-time1); Serial.print("\t");
+    Serial.print(" time2-3: "); Serial.print(time3-time2); Serial.print("\t");
+    Serial.print(" time3-4: "); Serial.print(time4-time3); Serial.print("\t");
+    Serial.print(" time4-5: "); Serial.print(time5-time3); Serial.print("\t");
+    Serial.print(" time5-6: "); Serial.print(time6-time5); Serial.print("\t");
+    Serial.print(" time6-7: "); Serial.print(time7-time6); Serial.print("\t");
+    Serial.print(" time7-8: "); Serial.print(time8-time6); Serial.print("\t");
+    Serial.print(" time8-9: "); Serial.print(time9-time7); Serial.print("\t");
+    Serial.print(" time_all: "); Serial.print(time9-time1); Serial.print("\t");
+    Serial.println();
+    
 }     // End of void loop() !!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1029,6 +1746,12 @@ void scan_i2c()
       if (address<16)
         Serial.print("0");
       Serial.print(address,HEX);
+      if (address == 68) sht1_found = true;
+      if (address == 69) sht2_found = true;
+      if (address == 35) light1_found = true;
+      if (address == 92) light2_found = true;
+      if (address == 60) display_found = true;
+      
       Serial.println("  !");
  
       nDevices++;
@@ -1271,68 +1994,70 @@ boolean summertime(int year, byte month, byte day, byte hour, byte tzHours)
 
 
 
-void Wunderground_read_station() {
+ void Wunderground_read_station() {
 
-  // Use WiFiClient class to create TCP connections
-  //const int httpPort = 80;
-  if (!client2.connect(WUNDERGROUND, 80)) {
-    Serial.println(F("connection failed"));
-    return;
-  }
+//   // Use WiFiClient class to create TCP connections
+//   //const int httpPort = 80;
+// //  if (!client2.connect(WUNDERGROUND, 80)) {
+// //    Serial.println(F("connection failed"));
+// //    return;
+// //  }
 
-  Serial.println();
-  Serial.print(WUNDERGROUND_REQ);
-  client2.print(WUNDERGROUND_REQ);
-  client2.flush();
+//   Serial.println();
+//   Serial.print(WUNDERGROUND_REQ);
+  
+//   client2.connect(WUNDERGROUND, 80);
+//   client2.print(WUNDERGROUND_REQ);
+//   client2.flush();
 
- // Skip HTTP headers; They end with an empty line
-  char endOfHeaders[] = "\r\n\r\n";
-  client2.setTimeout(10000); //http Timeout
-  client2.find(endOfHeaders);
+//  // Skip HTTP headers; They end with an empty line
+//   char endOfHeaders[] = "\r\n\r\n";
+//   client2.setTimeout(10000); //http Timeout
+//   client2.find(endOfHeaders);
 
   
-  UserData userData;
-  if (readReponseContent(&userData)) {
-    printUserData(&userData);
-  }
+//   UserData userData;
+//   if (readReponseContent(&userData)) {
+//     printUserData(&userData);
+//   }
 
 
 client2.stop();
 }
 
 
-// extract Data from the JSON File
-bool readReponseContent(struct UserData* userData) {
-  // Compute optimal size of the JSON buffer according to what we need to parse.
-  // See https://bblanchon.github.io/ArduinoJson/assistant/
-  const size_t BUFFER_SIZE = 
-      JSON_OBJECT_SIZE(8)    // the root object has 8 elements
-      + JSON_OBJECT_SIZE(5)  // the "address" object has 5 elements
-      + JSON_OBJECT_SIZE(2)  // the "geo" object has 2 elements
-      + JSON_OBJECT_SIZE(3)  // the "company" object has 3 elements
-      + 512;                 // additional space for strings
+// // extract Data from the JSON File
+// bool readReponseContent(struct UserData* userData) {
+//   // Compute optimal size of the JSON buffer according to what we need to parse.
+//   // See https://bblanchon.github.io/ArduinoJson/assistant/
+//   const size_t BUFFER_SIZE = 
+//       JSON_OBJECT_SIZE(8)    // the root object has 8 elements
+//       + JSON_OBJECT_SIZE(5)  // the "address" object has 5 elements
+//       + JSON_OBJECT_SIZE(2)  // the "geo" object has 2 elements
+//       + JSON_OBJECT_SIZE(3)  // the "company" object has 3 elements
+//       + 512;                 // additional space for strings
 
-  // Allocate a temporary memory pool
-  DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);
+//   // Allocate a temporary memory pool
+//   DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);
 
-  JsonObject& root = jsonBuffer.parseObject(client2);
+//   JsonObject& root = jsonBuffer.parseObject(client2);
 
-  if (!root.success()) {
-    Serial.println("JSON parsing failed!");
-    return false;
-  }
+//   if (!root.success()) {
+//     Serial.println("JSON parsing failed!");
+//     return false;
+//   }
 
-  // Here were copy the strings we're interested in
-  strcpy(userData->temp_c, root["current_observation"]["temp_c"]);
-  strcpy(userData->relative_humidity, root["current_observation"]["relative_humidity"]);
-  strcpy(userData->dewpoint_c, root["current_observation"]["dewpoint_c"]);
-  strcpy(userData->observation_time_rfc822, root["current_observation"]["observation_time_rfc822"]);
-  // It's not mandatory to make a copy, you could just use the pointers
-  // Since, they are pointing inside the "content" buffer, so you need to make
-  // sure it's still in memory when you read the string
+//   // Here were copy the strings we're interested in
+//   strcpy(userData->temp_c, root["current_observation"]["temp_c"]);
+//   strcpy(userData->relative_humidity, root["current_observation"]["relative_humidity"]);
+//   strcpy(userData->dewpoint_c, root["current_observation"]["dewpoint_c"]);
+//   strcpy(userData->observation_time_rfc822, root["current_observation"]["observation_time_rfc822"]);
+//   // It's not mandatory to make a copy, you could just use the pointers
+//   // Since, they are pointing inside the "content" buffer, so you need to make
+//   // sure it's still in memory when you read the string
 
-  return true;
-}
+//   return true;
+// }
 
  //Print the data extracted from the JSON
 void printUserData(const struct UserData* userData) {
@@ -1349,8 +2074,11 @@ void printUserData(const struct UserData* userData) {
   
   String Sting_Userdata_temp_c = (char *)userData->temp_c;
   float float_Userdata_temp_c =  Sting_Userdata_temp_c.toFloat();
-  compare_temp = float_Userdata_temp_c - temp_average;
-//  AIO_Berger_Halde.publish(compare_temp);
+  compare_temp = float_Userdata_temp_c;    // - temp_average;
+
+  dtostrf(compare_temp, 10, 2, comparetopic);//convert float to char
+  client.publish("homeassistant/sensor/comparetemp",comparetopic, true);
+
   delay(2000);
           
         
@@ -1369,7 +2097,7 @@ String soiltem="&soiltempf=";
 String bar ="&baromin=";
 
 String taupunkt = String(Taupunkt_mittel * 1.8 + 32);
-String temp = String(temp_average * 1.8 + 32);
+String temp = String(sht31_3_temp * 1.8 + 32);
 String temp2 = String(mcp9808_temp * 1.8 + 32);
 String temp3 = String(maximtemp1 * 1.8 + 32);
 String temp4 = String(dht_temp * 1.8 + 32);
@@ -1466,9 +2194,10 @@ void current_status(){
 
 void MQTT_connect() {
   // Loop until we're connected
-  Serial.print("Attempting MQTT connection...");
+
   if (!client.connected()) {
      // Attempt to connect
+    Serial.print("Not MQTT connected, try to connect...");     
     if (client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD)) {
       Serial.println("MQTT connected");
        MQTT_subscribe();
@@ -1505,6 +2234,138 @@ void MQTT_connect() {
     }
   }
 }
+
+
+void sendMQTTDiscoveryDeviceMsg(String Sensor_kind ,  String unit ,  String Device_class ,  String Value_template ,  String State_Topic) {
+ 
+  // This is the topic this program will send the state of this device to.
+  //String stateTopic = "home/plants/" + String(sensorNumber) + "/state";
+
+  // This is the discovery topic for this specific sensor
+  
+  
+
+//  String room_name2 = String(room_name);
+//  room_name2.toLowerCase();
+// 
+//  client.setBufferSize(512);   //IMPORTANT: defines the lenght of JSON message
+//  
+//  String discoveryTopic = "homeassistant/sensor/" + room_name2 +"/config";
+//  
+//  DynamicJsonDocument doc(512);
+//  char buffer[512];
+//  
+//  JsonObject device = doc.createNestedObject("device");                          // create substructure in JSON
+//  device["name"] = String(room_name);                                                // define Device name where entity is part of it
+//  device["sa"] = room_name2;                                                  // define Device name where entity is part of it
+//  device["mdl"] = String("DIY");                                                  // define Device name where entity is part of it    
+//  device["ids"][0] = room_name2;                                                  // define Device name where entity is part of it
+//                                              
+//  
+//serializeJson(doc, buffer);
+//
+// client.publish(discoveryTopic.c_str(), buffer, true);             //This Message needs to RETAIN too
+//
+//delay(500);
+
+}
+
+void sendMQTTDiscoveryMsg(String Sensor_kind ,  String unit ,  String Device_class ,  String Value_template ,  String State_Topic) {
+ 
+/*
+  // String Sensor_kind = "Temp";
+  // String unit = "°C";
+  // String Device_class = "temperature";
+  // String Value_template = "{{ value_json.T }}";
+  // String State_Topic = MQTT_SENSOR_TOPIC;
+all:
+- temperature T
+- humidity H
+- Pressure P
+- absolute_humidity A
+- lux L
+- co2 C
+- dew D
+- Gust G
+- Wind W
+ 
+Special:
+
+- lux2
+*/
+
+  // This is the topic this program will send the state of this device to.
+  //String stateTopic = "home/plants/" + String(sensorNumber) + "/state";
+
+  // This is the discovery topic for this specific sensor
+  
+  
+
+ String room_name2 = String(room_name);
+ String add_string = String("Room_Sensor");
+ room_name2.toLowerCase();
+ 
+
+  //String discoveryTopic = "homeassistant/sensor/" + String(State_Topic) + "/" + Sensor_kind +"/config";
+  // String discoveryTopic = "homeassistant/sensor/" + String(State_Topic) + "/config"; MQTT_SENSOR_TOPIC
+  
+  client.setBufferSize(512);   //IMPORTANT: defines the lenght of JSON message
+  
+  String discoveryTopic = "homeassistant/sensor/" + String(MQTT_SENSOR_TOPIC) + "/" + Sensor_kind +"/config";
+  
+  DynamicJsonDocument doc(512);
+  char buffer[512];
+
+  doc["name"] = Sensor_kind +" " + String(room_name);    //Name of the Entity in Home Assistant
+  
+  Sensor_kind.toLowerCase();
+  doc["obj_id"] = room_name2 +"_" + Sensor_kind;   //Entity ID in Home Assistant
+  doc["uniq_id"] = room_name2 +"_" + Sensor_kind;   // Should be identical to obj_id
+  doc["unit_of_meas"] = unit;
+  if (Value_template != "") doc["val_tpl"] = Value_template;                    //Value Template; Here: JSON
+  doc["stat_t"] = State_Topic;                                                    // = State Topic  
+  doc["frc_upd"] = true;                                                          // Force Update
+  doc["ret"] = true;                                                              //Retain
+  doc["stat_cla"] = "measurement";                                                //needed for Long term statistics  https://developers.home-assistant.io/docs/core/entity/sensor/#long-term-statistics
+  if (Device_class != "") doc["dev_cla"] = Device_class;                          // Device Class needed for Long term statistics 
+//  doc["state_class"] = "measurement";                                                //needed for Long term statistics  https://developers.home-assistant.io/docs/core/entity/sensor/#long-term-statistics
+//  if (Device_class != "") doc["device_class"] = Device_class;                          // Device Class needed for Long term statistics 
+
+  
+  JsonObject device = doc.createNestedObject("device");                          // create substructure in JSON
+  device["name"] = add_string +"_" + String(room_name);                                                // define Device name where entity is part of it
+  device["sa"] = add_string +"_" + room_name2;                                                  // define Device name where entity is part of it
+  device["mdl"] = add_string +"_" + String("DIY");                                                  // define Device name where entity is part of it    
+  device["mf"] = add_string +"_" + String("DIY");                                                  // define Device name where entity is part of it   
+  device["sw"] = add_string +"_" + String("1.0");                                                  // define Device name where entity is part of it   
+  device["ids"][0] = add_string +"_" + room_name2;                                                  // define Device name where entity is part of it
+ 
+  
+  //JsonArray ids = doc.createNestedArray("ids");
+  //ids.add(room_name2);                                                  // define Device name where entity is part of it
+                                                   
+  
+  
+    //doc["stat_tpl"]                                         // = stateTemplate; 
+  //doc["sa"] = room_name;                                    //suggested_area  --> does not show up in Home Assistant
+
+//EepromStream eepromStream(0, 512);
+
+serializeJson(doc, buffer);
+
+ // size_t n = serializeJson(doc, eepromStream);
+//buffer = eepromStream.readString().c_str();
+
+ // client.publish(discoveryTopic.c_str(), eepromStream.c_str());
+  client.publish(discoveryTopic.c_str(), buffer, true);             //This Message needs to RETAIN too
+
+//EEPROM.commit();
+//eepromStream.flush();  // (for ESP)
+
+delay(500);
+
+}
+
 
 
 // function called to publish the temperature and the humidity
@@ -1548,7 +2409,7 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
 //  
 //*/ 
  
-  if (p_co2 <= 350) p_co2 = 350;
+  //if (p_co2 <= 350) p_co2 = 350;
   
   uint16_t p_lux2;
   uint16_t p_wind_gust2;
@@ -1569,10 +2430,14 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
     Serial.print(p_lux); Serial.print("lx"); Serial.print("\t");
     Serial.print(p_lux2); Serial.print("lx"); Serial.print("\t");
     
-  StaticJsonBuffer<270> jsonBuffer;
+  //StaticJsonBuffer<270> jsonBuffer;
   
+
   // Get the root object in the document
-  JsonObject& root = jsonBuffer.createObject();
+ // alt JsonObject& root = jsonBuffer.createObject();
+     
+     DynamicJsonDocument root(1024); //neu
+     char data[270];//neu
   
   // INFO: the data must be converted into a string; a problem occurs when using floats...
   root["T"] = (String)p_temperature;
@@ -1585,12 +2450,12 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
   if (Client_Number != "0") root["C"] = (String)p_co2;
  // if (Client_Number != "0") root["G"] = (String)p_wind_gust;
  // if (Client_Number != "0") root["W"] = (String)p_wind_avg_avg;
-  if (p_wind_gust < 100) root["G"] = (String)p_wind_gust;
-  if (p_wind_avg_avg < 100) root["W"] = (String)p_wind_avg_avg;
-  if (p_wind_gust2 >= 9999) p_wind_gust2=9999;
-  if (p_wind_gust >= 100) root["G"] = (String)p_wind_gust2;
-  if (p_wind_avg_avg >= 999) p_wind_avg_avg2=999;
-  if (p_wind_avg_avg >= 100) root["W"] = (String)p_wind_avg_avg2;
+ // if (p_wind_gust < 100) root["G"] = (String)p_wind_gust;
+  //if (p_wind_avg_avg < 100) root["W"] = (String)p_wind_avg_avg;
+  //if (p_wind_gust2 >= 9999) p_wind_gust2=9999;
+  //if (p_wind_gust >= 100) root["G"] = (String)p_wind_gust2;
+  //if (p_wind_avg_avg >= 699) p_wind_avg_avg2=699;
+  //if (p_wind_avg_avg >= 100) root["W"] = (String)p_wind_avg_avg2;
   
   //root.prettyPrintTo(Serial);
   //Serial.println("");
@@ -1600,92 +2465,592 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
   dtostrf(energy_month, 10, 2, monthtopic);//convert float to char
   dtostrf(energy_avg, 10, 2, overalltopic);//convert float to char
   
-  char data[270];
-  root.printTo(data, root.measureLength() + 1);
-    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPICS0, data, true);
-    if (Client_Number == "1") client.publish(MQTT_SENSOR_TOPICS1, data, true);    
-    if (Client_Number == "2") client.publish(MQTT_SENSOR_TOPICS2, data, true);    
-    if (Client_Number == "3") client.publish(MQTT_SENSOR_TOPICS3, data, true);   
-    if (Client_Number == "4") client.publish(MQTT_SENSOR_TOPICS4, data, true);   
-    if (Client_Number == "5") client.publish(MQTT_SENSOR_TOPICS5, data, true);   
-    if (Client_Number == "6") client.publish(MQTT_SENSOR_TOPICS6, data, true);   
-    if (Client_Number == "7") client.publish(MQTT_SENSOR_TOPICS7, data, true);    
-    if (Client_Number == "8") client.publish(MQTT_SENSOR_TOPICS8, data, true);    
-    if (Client_Number == "9") client.publish(MQTT_SENSOR_TOPICS9, data, true);   
-    if (Client_Number == "10") client.publish(MQTT_SENSOR_TOPICS10, data, true);
-    if (Client_Number == "10") client.publish("Ventilation_Office/switch/status",publishtopic);
-    if (Client_Number == "10") client.publish("Ventilation_Sleep/switch/status",publishtopic);
-    if (Client_Number == "10") client.publish("Ventilation_Kids/switch/status",publishtopic);   
-    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/day",daytopic);
-    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/month",monthtopic);
-    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/all",overalltopic);
-    if (Client_Number == "11") client.publish(MQTT_SENSOR_TOPICS11, data, true);   
-    if (Client_Number == "12") client.publish(MQTT_SENSOR_TOPICS12, data, true);
+  dtostrf(sht31_2_temp, 10, 2, temptopic2);//convert float to char
+  dtostrf(sht31_2_humidity, 10, 2, humtopic2);//convert float to char  
+  dtostrf(sht31_3_humidity, 10, 2, humtopic3);//convert float to char
+  dtostrf(sht31_3_temp, 10, 2, temptopic3);//convert float to char
+  dtostrf(lux1, 10, 2, lux1topic);//convert float to char
+  dtostrf(lux2, 10, 2, lux2topic);//convert float to char
+  
+  //dtostrf(wind_gust_max, 10, 2, wind_gustmaxtopic);//convert float to char
+  //dtostrf(wind_gust, 10, 2, wind_gusttopic);//convert float to char
+  //dtostrf(p_wind_avg_avg, 10, 2, wind_topic);//convert float to char
+  //dtostrf(wind_mittelwert, 10, 2, wind_mediantopic);//convert float to char
+  //dtostrf(wind_mittelwert2, 10, 2, wind_mediantopic2);//convert float to char
+  
+  dtostrf(room_humidity, 10, 2, room_humiditytopic);//convert float to char
+  dtostrf(analog_readings, 10,2, analog_readingstopic);
+  
+  itoa(climate_temp, climate_temp_topic, 10);//convert int to char
+  itoa(vent_kids, vent_kids_topic, 10);//convert int to char
+  itoa(vent_sleep, vent_sleep_topic, 10);//convert int to char
+  itoa(vent_office, vent_office_topic, 10);//convert int to char
+  itoa(water_time/1000, water_time_topic, 10);//convert int to char    
+ 
+  climate_mode.toCharArray(climate_mode_topic, 10); //convert string to char
+  climate_power.toCharArray(climate_power_topic, 10); //convert string to char
+  climate_fan.toCharArray(climate_fan_topic, 10); //convert string to char
+  
+  //char data[270];
+  //root.printTo(data, root.measureLength() + 1);//alt
+  
+  client.setBufferSize(512);   //IMPORTANT: defines the lenght of JSON message
+  
+  size_t n = serializeJson(root, data);//neu
+
+   //client.publish(discoveryTopic.c_str(), buffer, n);
+  
+   //client.publish("homeassistant/sensor/temp",temptopic, true);
+   //client.publish("homeassistant/sensor/hum",humtopic, true);
+   client.publish(MQTT_SENSOR_TOPIC, data, true);
+   
+ //  String stopic;
+ //  stopic = MQTT_SENSOR_TOPIC;
+   //strcpy(stopic, MQTT_SENSOR_TOPIC);
+
+//char buf2[20];
+
+  // String testst = stopic + "/temp2";
+  // testst.toCharArray(buf2, 20);
+   
+// if (Client_Number == "0") sendMQTTMsg("/temp2", temptopic)
+ //if (Client_Number == "0") sendMQTTMsg("/temp3", temptopic3)  
+ 
+ //if (Client_Number == "0") client.publish(buf2,temptopic, true);
+  
+  // testst = stopic + "/temp3";
+   //testst.toCharArray(buf2, 20);
+   
+
+   // if (Client_Number == "0") client.publish(buf2,temptopic3, true);
+
+client.publish(MQTT_SENSOR_TOPIC_temp2,temptopic2, true);
+client.publish(MQTT_SENSOR_TOPIC_hum2,humtopic2, true);    
+
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_temp3,temptopic3, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_hum3,humtopic3, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_lux1,lux1topic, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_lux2,lux2topic, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_daylight,daylighttopic, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_rain,analog_readingstopic, true);
+    
+    // if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_gustmax,wind_gustmaxtopic, true);
+    // if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_gust,wind_gusttopic, true);
+    // if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind,wind_topic, true);
+    // if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind_median,wind_mediantopic, true);
+    // if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind_median2,wind_mediantopic2, true);
+
+    
+    if (Client_Number != "0") client.publish(MQTT_SENSOR_TOPIC_room_humidity,room_humiditytopic, true);  
+    
+    if (Client_Number == "10") client.publish("Ventilation_Office/switch/status",publishtopic1 ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Sleep/switch/status",publishtopic1 ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Kids/switch/status",publishtopic1 ,true); 
+    
+    if (Client_Number == "10") client.publish("Ventilation_Office/Power/status",vent_office_topic ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Sleep/Power/status",vent_sleep_topic ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Kids/Power/status",vent_kids_topic ,true);  
+     
+    if (Client_Number == "10") client.publish("Ventilation_Office/available", publishtopic1);   
+    if (Client_Number == "10") client.publish("Ventilation_Sleep/available", publishtopic1);
+    if (Client_Number == "10") client.publish("Ventilation_Kids/available", publishtopic1);
+    
+    if (Client_Number == "10") client.publish("Heating/Switch/status",publishtopic1); 
+    if (Client_Number == "10") client.publish("Heating/available", publishtopic1);
+    if (Client_Number == "10") client.publish("Heating/Switch",publishtopic1); 
+ 
+    if (Client_Number == "10") client.publish("Ventilation_Office/switch",publishtopic1 ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Sleep/switch",publishtopic1 ,true);
+    if (Client_Number == "10") client.publish("Ventilation_Kids/switch",publishtopic1 ,true); 
+             
+    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/day",daytopic ,true);
+    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/month",monthtopic ,true);
+    if (Client_Number == "10") client.publish("homeassistant/sensor/energy/all",overalltopic ,true);
+
+    if (Client_Number == "13") client.publish("Sprudler/switch/status",publishtopic1);     
+    if (Client_Number == "13") client.publish("Sprudler/available", publishtopic1); 
+    if (Client_Number == "13") client.publish("Sprudler/Amount/status", water_time_topic, true);  
+   
+    if (Client_Number == "14"){
+      if (millis() >= 60000){
+        client.publish("s14/available", publishtopic1); 
+        client.publish("s14/mode/state", climate_mode_topic, true);
+        client.publish("s14/temperature/state", climate_temp_topic, true);
+       // if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
+        //if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);
+        client.publish("s14/fan/state", climate_fan_topic, true);
+      }
+    }
+    
 
   yield();
+  //Serial.print("MQTT-Published to"); Serial.print("\t");Serial.print(MQTT_SENSOR_TOPIC); Serial.print("\t");Serial.print(testst); Serial.print("\t");
+  //MQTT_subscribe();
+
+
+}
+
+
+// void sendMQTTMsg(String data_topic ,  char unit){
+//    String sensor_topic;
+//    char buffer2[20];
+//    String testst;
+   
+//    sensor_topic = MQTT_SENSOR_TOPIC; 
+//    testst = sensor_topic + data_topic;
+//    testst.toCharArray(buffer2, 20);   
+
+// client.publish(buffer2, unit, true);
+    
+
+// }
+
+
+
+// function called to publish the temperature and the humidity
+void publishData2() {
+ 
+  
+  dtostrf(wind_gust_max, 10, 2, wind_gustmaxtopic);//convert float to char
+  dtostrf(wind_gust, 10, 2, wind_gusttopic);//convert float to char
+  dtostrf(wind_mittelwert, 10, 2, wind_topic);//convert float to char  
+//  dtostrf(wind_mittelwert, 10, 2, wind_mediantopic);//convert float to char
+ // dtostrf(wind_mittelwert2, 10, 2, wind_mediantopic2);//convert float to char
+  dtostrf(analog_readings, 10,2, analog_readingstopic);
+ 
+  
+  //char data[270];
+ // root.printTo(data, root.measureLength() + 1);
+  //if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPICS0, data, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_gustmax,wind_gustmaxtopic, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_gust,wind_gusttopic, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind,wind_topic, true);
+//    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind_median,wind_mediantopic, true);
+//    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_wind_median2,wind_mediantopic2, true);
+    if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_rain,analog_readingstopic, true);
+
+    yield();
   Serial.print("MQTT-Published"); Serial.print("\t");
   //MQTT_subscribe();
-  
 
- 
+
+
 }
+
+
 
 
 void MQTT_subscribe(){
   client.subscribe("LED");
   
-  if (Client_Number == "0"){
+  if (Client_Number == "0"){                        //outdoor
     client.subscribe("Ventilation/Power");
   }
-   if (Client_Number == "10"){
-     client.subscribe("Ventilation_Office/Power");
-     client.publish("Ventilation_Office/switch/status",publishtopic);
-     client.subscribe("Ventilation_Sleep/Power");
-     client.publish("Ventilation_Sleep/switch/status",publishtopic);
-     client.subscribe("Ventilation_Kids/Power");
-     client.publish("Ventilation_Kids/switch/status",publishtopic);
-     client.subscribe("homeassistant/sensor/energy/state");
-     client.subscribe("homeassistant/sensor/energy_day/state");
-     client.subscribe("homeassistant/sensor/energy_month/state");
+
+   if (Client_Number == "10"){                      //technique
+    client.subscribe("Ventilation_Office/Power");
+    client.publish("Ventilation_Office/switch/status",publishtopic1);
+    client.publish("Ventilation_Office/switch",publishtopic1);    
+    
+    client.subscribe("Ventilation_Sleep/Power");
+    client.publish("Ventilation_Sleep/switch/status",publishtopic1);
+    client.publish("Ventilation_Sleep/switch",publishtopic1);    
+    
+    client.subscribe("Ventilation_Kids/Power");
+    client.publish("Ventilation_Kids/switch/status",publishtopic1);
+    client.publish("Ventilation_Kids/switch",publishtopic1);
+      
+    //client.subscribe("homeassistant/sensor/energy/state");
+    client.subscribe("homeassistant/sensor/energy/all");
+    //client.subscribe("homeassistant/sensor/energy/retain");
+    client.subscribe("homeassistant/sensor/energy_day/state");
+    client.subscribe("homeassistant/sensor/energy_month/state");
+    //client.subscribe("homeassistant/sensor/energy/last_day");
+    client.subscribe("homeassistant/sensor/energy/last_month");
+    //client.subscribe("homeassistant/sensor/energy_pre");
+    
+    client.publish("Heating/Switch/status ",publishtopic1);    
+    client.publish("Heating/Switch",publishtopic1);      
+    client.subscribe("Heating/Power");    
+   
+  }
+  
+ if (Client_Number == "12"){                  //Display
+    client.subscribe("homeassistant/sensor/temp3");
+    client.subscribe("homeassistant/sensor/hum");
+  } 
+  
+  
+   if (Client_Number == "13"){                //Sprudler
+    client.subscribe("Sprudler/switch");
+    client.subscribe("Sprudler/Amount");
+    client.subscribe("Sprudler/Counter");  
+    client.publish("Sprudler/switch/status",publishtopic1);     
+           
    }
+
+ if (Client_Number == "14"){                   //AC_control
+   //client.subscribe("s14/power/set");
+   client.subscribe("s14/mode/set");
+   client.subscribe("s14/temperature/set");
+   client.subscribe("s14/fan/set");
+   client.subscribe("s14/swing/set");
+ 
+ }
+
+
+
 }
+
+
+
+
+
+
+void ac_control(){
+if (Client_Number == "14"){
+  
+  //uint8_t climate_temp = 24;
+  //uint8_t fan_speed = 1;
+
+
+    // modes:
+    //   - "off"
+    //   - "cool"
+    //   - "fan_only"
+    //   - "auto"
+    //   - "heat"
+    //   - "dry"
+    // swing_modes:
+    //   - "on"
+    //   - "off"
+    // fan_modes:
+    //   - "auto"
+    //   - "high"
+    //   - "medium"
+    //   - "low"
+
+  
+    // power_command_topic: "s14/power/set" ----> ON OFF (not needed)
+    // mode_command_topic: "s14/mode/set" ----> off  heat auto  cool  dry  fan_only
+    // temperature_command_topic: "s14/temperature/set"   -----> 17  21  ...
+    // fan_mode_command_topic: "s14/fan/set"    -----> high  medium  low
+    // swing_mode_command_topic: "s14/swing/set"  ----->off  on
+  
+  // Set up what we want to send. See ir_Daikin.cpp for all the options.
+  ac.on();
+ //   ac.off();
+  ac.setFan(fan_speed); // 0 = Auto; 1-3 = Fan Speed modes 1 = low; 2 = mid; 3 = high
+
+// const uint8_t kMideaACCool = 0;     // 0b000
+// const uint8_t kMideaACDry = 1;      // 0b001
+// const uint8_t kMideaACAuto = 2;     // 0b010
+// const uint8_t kMideaACHeat = 3;     // 0b011
+// const uint8_t kMideaACFan = 4;      // 0b100
+
+// const uint8_t kMideaACFanAuto = 0;  // 0b00
+// const uint8_t kMideaACFanLow = 1;   // 0b01
+// const uint8_t kMideaACFanMed = 2;   // 0b10
+// const uint8_t kMideaACFanHigh = 3;  // 0b11  
+
+  ac.setMode(kMideaACHeat);
+ //kMideaACAuto
+ //kMideaACCool
+ //kMideaACHeat
+ //kMideaACDry
+ //kMideaACFan
+
+  ac.setUseCelsius(true);
+  ac.setTemp(climate_temp, true);
+  //ac.setSwingVertical(false);
+  //ac.setSwingHorizontal(false);
+
+  
+  // set Turn off timer in minutes)
+  //ac.setOffTimer(30);
+
+  // Display what we are going to send.
+ // Serial.println(ac.toString());
+ 
+// Reset the state of the remote to a known good state 
+// Power On, Mode Auto, Fan Auto, Temp = 25C
+ // ac.stateReset();
+ 
+  // Now send the IR signal.
+  ac.send();
+
+delay(5000);
+
+}
+
+}
+
+
+
+
 
 // function called when a MQTT message arrived
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived; TOPIC: [");
+  
+  char chars_added[200];
+  char* part1 = topic;
+  char* part2 = "/status";
+  
+  strcpy(chars_added, topic);
+  strcat(chars_added, part2);  
+  
+  Serial.println();
+  Serial.print("MQTT Message arrived! TOPIC: [");
   Serial.print(topic);
   
-  Serial.print("] ");
-  Serial.print(topic[4]);
-  Serial.print("Payload [");
+  Serial.print("]; ");
+  //Serial.print(topic[4]);
+  Serial.print("Payload: [");
   
   
  if (topic[0] =='L' ) ESP.restart();
 
- 
+
   
   payload[length] = '\0'; // Add a NULL to the end of the char* to make it useable as string https://www.arduino.cc/reference/de/language/variables/data-types/string/
  
   int intPayload = atoi((char *)payload); //Returs '0' when not numeric
   double doublePayload = atof((char *)payload); //Returs '0' when not numeric
+  String stringPayload = String((char *)payload);
+  float test12 = 0;
+  
+if (Client_Number == "12"){             //Only Check
+  if (topic[21] =='t' ){
+    sht31_4_temp = doublePayload;
+  }
+  if (topic[21] =='h' ){
+    sht31_4_humidity = doublePayload;
+  }
+  } 
+
+  if (Client_Number == "13"){
+    if (topic[9] =='s' ){ 
+      if (intPayload == 1) start_water_override = 1;
+      //client.publish("Sprudler/switch", publishtopic0, true);  
+    }  
+    //client.subscribe("Sprudler/switch");
+   // client.subscribe("Sprudler/Amount ");
+   //client.subscribe("Sprudler/Counter");   
+     
+  if (topic[9] =='A' ){    
+    water_time = intPayload *1000;
+    
+    } 
+if (topic[9] =='C' ){    
+    water_counter = intPayload;
+    }             
+   }
+
+
+
+if (Client_Number == "14"){               //Conrtol Air COnditioning (Only via IR LED connected to ESP8266)
+    
+   // client.publish("s14/available", publishtopic1); 
+    
+  if (topic[4] =='p' ){
+//    climate_power = stringPayload;
+//    climate_power.toCharArray(climate_power_topic, 10); //convert string to char
+//    if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
+//    if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);
+//       if (stringPayload == "ON");
+//       if (stringPayload == "OFF");
+  }
  
-  if (topic[12] !='t' ){
-    if (intPayload >= 9) intPayload = 9;
+  if (topic[4] =='m' ){                     //if climate Mode was changed
+    if (stringPayload != climate_mode) { 
+      //if (millis() >= 30000) {   
+        if (stringPayload == "off") {
+          ac.off();
+          offset_restart = 0;
+          //climate_power = "OFF";
+          
+        }
+                
+        if (stringPayload == "heat"){
+          ac.on();
+          ac.setMode(kMideaACHeat);
+          ac.setFan(fan_speed);
+          offset_restart = 36000000; //10 hours
+          //climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "auto"){
+          ac.on();
+          ac.setMode(kMideaACAuto);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+         // climate_power = "ON";
+          
+        }       
+  
+        if (stringPayload == "cool"){
+          ac.on();
+          ac.setMode(kMideaACCool);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000;//6hours
+          climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "dry"){
+          ac.on();
+          ac.setMode(kMideaACDry);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+          //climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "fan_only"){
+          ac.on();
+          ac.setMode(kMideaACFan);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+          //climate_power = "ON";
+          
+        }
+  
+          ac.setUseCelsius(true);
+          ac.setTemp(climate_temp, true);
+          
+          climate_mode = stringPayload;
+          ac.send(); 
+      //} 
+         // client.publish("s14/mode/state", (char*) stringPayload.c_str(), true);
+         // if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
+         // if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);   
+    }
+ 
+  }
+ 
+  if (topic[4] =='t' ){                   //If AC Temp was changed
+    if (intPayload != climate_temp) {   
+      climate_temp = intPayload;
+      if (climate_mode != "off"){
+        //if (millis() >= 30000) {   
+          ac.setUseCelsius(true);
+          ac.setTemp(climate_temp, true);
+          ac.setFan(fan_speed);
+          ac.send(); 
+         // client.publish("s14/temperature/state", (char*) stringPayload.c_str(), true);
+        //}        
+      }    
+    }   
+  }
+  
+  if (topic[4] =='f' ){                   //If Fan Speed was changed
+  if (stringPayload != climate_fan){
+    if (climate_mode != "off"){     
+      if (stringPayload == "auto") {
+        ac.setFan(0);
+        fan_speed = 0;
+      }
+      if (stringPayload == "low") {
+        ac.setFan(1);
+        fan_speed = 1;
+      }
+      if (stringPayload == "medium") {
+        ac.setFan(2);
+        fan_speed = 2;
+      }
+      if (stringPayload == "high") {
+        ac.setFan(3);
+        fan_speed = 3;
+      }
+      ac.setUseCelsius(true);
+      ac.setTemp(climate_temp, true);
+      ac.send(); 
+    }      
+    climate_fan = stringPayload;      
+    //client.publish("s14/fan/state", (char*) stringPayload.c_str(), true);
+ }   
+ }
+
+  // if (topic[4] =='s' ){
+  //   if (stringPayload != climate_swing){   
+  //     if (stringPayload == "on") ac.stateReset();
+  //     //if (stringPayload == "off") ac.stateReset();
+      
+  //     climate_swing = stringPayload;  
+  //     ac.send();   
+  //   }
+  // }
+}
+
+
+
+if (Client_Number == "10"){               //Only techniqe
+  
+  
+  if (topic[8] =='P' ){
+    test12 = intPayload + 5 ;
+    test12 = test12 / 10;
+    intPayload = (int)test12;   //schneidet Nachkommastellen ab
+    if (intPayload >= 7) intPayload = 7;     //Heizung hat nur 7 Stufen
+    if (intPayload <= 0) intPayload = 0;     //Heizung hat nur 7 Stufen    
   }
 
+if (topic[12] !='t' ){
+    if (intPayload >= 9) intPayload = 9;   //Ventilation hat nur 9 Stufen
+  }
   
-  Serial.print(intPayload); Serial.print(" is Integer; "); Serial.print("] ");  
 
 
-  if (topic[12] =='O' ) write_analog_output((intPayload*100)+25, 0); //   Ziel: Büro & Dach           alt: Küche & Dach
-  if (topic[12] =='S' ) write_analog_output((intPayload*100)+25, 1); //   Ziel: Schlafzimmer & Küche  alt: Schlafzimmer & Büro
-  if (topic[12] =='K' ) write_analog_output((intPayload*100)+25, 2); //   Ziel: Fabio & Lia           alt: Fabio & Lia
+  if (topic[12] =='O' ) {
+    write_analog_output((intPayload*100)+25, 0);       //   Ziel: Büro & Dach           "Ventilation_Office/Power"  Wertebereich: 0 - 1024 --> 0-10V  
+    vent_office = intPayload;
+  }    
+  if (topic[12] =='S' ) {
+    write_analog_output((intPayload*100)+25, 1);   //   Ziel: Schlafzimmer & Küche  "Ventilation_Sleep/Power"   Wertebereich: 0 - 1024 --> 0-10V  
+    vent_sleep = intPayload;  
+}  
+  if (topic[12] =='K' ) {
+    write_analog_output((intPayload*100)+25, 2);   //   Ziel: Fabio & Lia           "Ventilation_Kids/Power"    Wertebereich: 0 - 1024 --> 0-10V  
+    vent_kids = intPayload;    
+  }    
+  if (topic[8] =='P' )  {
+  write_analog_output((intPayload*125)+50, 3);   //   Ziel: Heizstab              "Heating/Power"             Wertebereich: 0 - 1024 --> 0-10V   
+  }  
+  
+}
+
+  Serial.print(intPayload); Serial.print(" is Integer; "); Serial.print("] ");  Serial.print(test12); Serial.print(" and "); Serial.print(stringPayload); Serial.print(" is String; ");
+  
+  Serial.println();  
+// Heizstab:
+// Leistungsstufe	Von bis	Mittelwert
+      // 0	      0,00	    0,50
+      // 	        1,00	
+      // 1	      1,25	    1,75
+      // 	        2,25	
+      // 2	      2,50	    3,00
+      // 	        3,50	
+      // 3	      3,75	    4,25
+      // 	        4,75	
+      // 4	      5,00	    5,50
+      // 	        6,00	
+      // 5	      6,25	    6,75
+      // 	        7,25	
+      // 6	      7,50	    8,00
+      // 	        8,50	
+      // 7	      8,75	    9,25
+      // 	        9,75	
+
+
+//if (Client_Number == "13") client.publish("Sprudler/switch", publishtopic0, true);  
   
   if (millis() <= 40000){
-    if (topic[12] =='t' ){
+    if (topic[28] =='a' ){
       if (energy_received ==false) {
        energy_avg = energy_avg + doublePayload; //   Energiemessung
        energy_received = true;
+       reset_energy = energy_avg;
       }
     }
     if (topic[28] =='d' ){
@@ -1700,6 +3065,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
        month_received = true;
       }
     }  
+  }else{
+    if (topic[28] =='a' ){
+      if (reset_energy <= doublePayload) {
+       energy_avg = doublePayload; //   Energiemessung
+       energy_month = (today * 12000) - (12000) + energy_day; 
+       //4014kWh per year = 11kWh per Day
+       //4380kWh per year = 12kWh per Day 
+       //4745kWh per year = 13kWh per Day 
+       //5110kWh per year = 14kWh per Day    
+       }
+    }
   }
 
       //Funktion Steuerspannung        Min    Nenn   Max [V DC]
@@ -1743,26 +3119,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
 //
 //    Serial.print(" is Char with lenght; ");
 //  }
-  
-  
-  
+   Serial.println();
+   Serial.print(topic); 
+   Serial.println();     
 // 
-  char chars_added[200];
-  char* part1 = topic;
-  char* part2 = "/status";
-   
-  strcpy(chars_added, part1);
-  strcpy(chars_added + strlen(part1), part2);
+  
+  //strcpy(chars_added + strlen(part1), part2);
 
  char char_payload[10];
   String string_to_convert;
-  string_to_convert = String(intPayload);
-  string_to_convert.toCharArray(char_payload,10); 
+  
+  if (topic[8] =='P' ) intPayload = intPayload * 10; //Heizung 
+   string_to_convert = String(intPayload);           //Heizung 
+  string_to_convert.toCharArray(char_payload,10);    //Heizung 
 
 
   client.publish(chars_added,char_payload);
   //client.publish("Ventilation/switch/status";1)
    // client.publish("office/light/brightness",(char *)payload);
+   Serial.println();
+   Serial.print(topic); 
+   Serial.println();        
    Serial.print(chars_added);
    Serial.print(" is Topic & /status; ");
    Serial.print(char_payload);
@@ -1794,32 +3171,113 @@ void callback(char* topic, byte* payload, unsigned int length) {
     // it is active low on the ESP-01)
     //ESP.restart();                //restart ESP8266
   } 
-  
+ 
   
 }
 
-void read_CO2_PWM()
-  {
+void water_control(){  
+
+  if (Client_Number == "13"){  
+    if (millis() <= 20000){  
+      client.publish("Sprudler/switch",publishtopic0, true); 
+      }else{
+         char Countertopic[14];
+        float gesamtdauer = (water_time / 1000) + water_counter;
+        float water_time_2 = water_time / 3;
+        
+        delay(250);   
+       
+        int time_now_water = millis();
+
+        
+        digitalWrite(D2, HIGH);
+        delay(water_time_2); 
+        client.loop();   
+        digitalWrite(D2, HIGH);
+        delay(water_time_2); 
+        client.loop();   
+        digitalWrite(D2, HIGH);
+        delay(water_time_2);   
+        client.loop();   
+        digitalWrite(D2, LOW); 
+        
+        int time_now_water2 = millis() - time_now_water;
+        Serial.println();
+        Serial.print(time_now_water2);
+        Serial.println();
+
+        dtostrf(gesamtdauer, 10,2, Countertopic);
+        client.publish("Sprudler/Counter",Countertopic, true);
+
+        client.publish("Sprudler/switch",publishtopic0, true); 
+        client.publish("Sprudler/available", publishtopic1); 
+        client.publish("Sprudler/switch/status",publishtopic1, true);
+        client.publish("Sprudler/Amount/status", water_time_topic, true); 
+
+        attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); //was RISING
+      
+      }  
+  }
+}  
+
+
+void read_CO2_PWM() {
   long th, tl, periode, p1, p2;
-
-  th = pulseIn(pwm_pin, HIGH, 3000000);
-     tl = pulseIn(pwm_pin, LOW, 3000000);
-    periode = th + tl;
-    p1 = periode/502; // start pulse width
-    p2 = periode/251; // start and end pulse width combined 
-    if (periode >0 ) co2_pwm = 5000 * (th - p1) / (periode - p2);
-    if (periode ==0 ) co2_pwm = 411;
-    //Serial.println();
-    //Serial.print("th: "); Serial.print(th);Serial.print("\t"); Serial.print("tl: "); Serial.print(tl); Serial.print("\t");     Serial.print("ppm_pwm: "); Serial.print(ppm_pwm);Serial.print("\t");
-    
+  
+  if (co2_pwm != 411){
+    th = pulseIn(pwm_pin, HIGH, 3000000);
+      tl = pulseIn(pwm_pin, LOW, 3000000);
+      periode = th + tl;
+      p1 = periode/502; // start pulse width
+      p2 = periode/251; // start and end pulse width combined 
+      if (periode >0 ) co2_pwm = 5000 * (th - p1) / (periode - p2);
+      if (periode ==0 ) co2_pwm = 411;
+      //Serial.println();
+      //Serial.print("th: "); Serial.print(th);Serial.print("\t"); Serial.print("tl: "); Serial.print(tl); Serial.print("\t");     Serial.print("ppm_pwm: "); Serial.print(ppm_pwm);Serial.print("\t");
     }
+  }
 
+void read_periode2() {
+  long tl;
+  
+     // th = pulseIn(pwm_pin, HIGH, 3000000);
+      tl = pulseIn(pwm_pin, LOW, 3000000);
+      
+      // 26 ml/pulse --> 3.000.000µsec low time = 520ml/min
+      // 26 ml/pulse -->    52.000µsec low time = 30.000ml/min
+      if (tl > 0 ) {
+        flow_rate =(1000000/tl)*26*60;  // unit: ml/min
+      }
+      if (tl == 0 ) flow_rate = 0;
+      co2_pwm = flow_rate;
+  }
+
+
+void read_periode() {
+  long tl, th, periode;
+  
+      th = pulseIn(pwm_pin, HIGH, 2000000);
+      if (th != 0) {
+        tl = pulseIn(pwm_pin, LOW, 2000000);
+      }else{
+        tl =0;
+      }
+      
+      // 26 ml/pulse --> 3.000.000µsec low time = 520ml/min
+      // 26 ml/pulse -->    52.000µsec low time = 30.000ml/min
+      periode = tl + th;
+      if (periode > 0 ) {
+        flow_rate =(2000000/periode)*26*60;  // unit: ml/min
+      }
+      if (periode == 0 ) flow_rate = 0;
+      co2_pwm = flow_rate;
+  }
 
  void read_energy_PWM()
   {
   long th, tl, periode, p1, p2;
 
-  th = pulseIn(input_pin2, HIGH, 30000000); //1) wait for rising edge & start timer. 2) Wait for falling edge & stop timer.
+  //th = pulseIn(input_pin2, HIGH, 30000000); //1) wait for rising edge & start timer. 2) Wait for falling edge & stop timer.
   //tl = pulseIn(input_pin2, LOW, 20000000);  //1) wait for falling edge & start timer. 2) Wait for rising edge & stop timer.
     tl=4340;
     periode = th + tl;
@@ -1865,10 +3323,13 @@ Serial.println();
 
 void wind() {
 
-    detachInterrupt(digitalPinToInterrupt(input_pin1));
+    
     Pulse_Array[0]=1;
-    Pulse_Array[1]=1;
+    Pulse_Array[1]=1;     //will create an error of 1µs but no 1/0 division
     float rps_avg = 0.001;
+
+    detachInterrupt(digitalPinToInterrupt(input_pin1));
+    
     float duration_sec_avg = (Pulse_Array[i_wind-1]);
     //Serial.print("i_wind-1: "); Serial.print(i_wind-1);Serial.print("\t"); Serial.print("Pulse_Array[i_wind-1]: "); Serial.print(Pulse_Array[i_wind-1]); Serial.print("\t");
 
@@ -1878,19 +3339,18 @@ void wind() {
       
       long rps_avg1 = (duration_sec_avg / (i_wind-2) ); //computing average time per pulse (inµs)
           
-      float rps_avg2 = rps_avg1 * 0.000002; //Convert from µs to seconds, and multiply by 2 ---> because there are 2 pulses per rotation. SAme like X / 500000
-      rps_avg = 1/ rps_avg2; //Kehrwert; conversionfrom "Seconds per Rotation" in "rotation per second"
+      float rps_avg2 = rps_avg1 * 0.000002; //Convert from µs to seconds, and multiply by 2 ---> because there are 2 pulses per rotation. Same like X / 500000
+      rps_avg = 1/ rps_avg2; //Kehrwert; conversion from "Seconds per Rotation" in "rotation per second"
       
      //Serial.println(); Serial.print("rps_avg1: "); Serial.print(rps_avg1); Serial.print("\t");Serial.print("rps_avg2: "); Serial.print(rps_avg2,4); Serial.print("\t"); Serial.print("rps_avg2: "); Serial.print(rps_avg2,4);
     
     
 
   //Calculate maximum "Rotations per Second"
+     
+    float rps_max = 0.1;  //Initiate maximum Speed variable with a very low number.
+    for (int a=1; a <= i_wind-3; a=a+2){  //Stepsize 2--> because there are 2 pulses per rotation. We always wat to trigger the same mechanical pulse, to eliminate mechanical tolerances
   
-   
-      float rps_max = 0.1;  //Initiate maximum Speed variable with a very low number.
-      for (int a=1; a <= i_wind-3; a=a+2){  //Stepsize 2--> because there are 2 pulses per rotation. We always wat to trigger the same mechanical pulse, to eliminate mechanical tolerances
-    
       //Bestimmen der Einzeldrehzahlen aus dem Array
       long array_diff = (Pulse_Array[a+2]-Pulse_Array[a]);
       float duration_sec_2 = array_diff*0.000001;
@@ -1904,134 +3364,202 @@ void wind() {
         }
         //Serial.println(); Serial.print("rps_max: "); Serial.print(rps_max); Serial.print("\t");
         //Serial.println(); Serial.print("duration_sec_2: "); Serial.print(duration_sec_2); Serial.print("\t");
-      }
-    
-    
-
-    //Convert from "rotaional speed" to "wind speed" in km/h 
-    
-    wind_gust = 1.761 / (1 + rps_max) + 3.013 * rps_max;  // found here: https://www.amazon.de/gp/customer-reviews/R3C68WVOLJ7ZTO/ref=cm_cr_getr_d_rvw_ttl?ie=UTF8&ASIN=B0018LBFG8 (in German)
-    wind_avg = 1.761 / (1 + rps_avg) + 3.013 * rps_avg; // found here: https://www.amazon.de/gp/customer-reviews/R3C68WVOLJ7ZTO/ref=cm_cr_getr_d_rvw_ttl?ie=UTF8&ASIN=B0018LBFG8 (in German)
-    }else{
-      wind_gust = 1.90;
-      wind_avg = 1.90;
     }
-    //Serial.println();Serial.print(wind_avg); Serial.print(wind_gust); Serial.print("\t");
+    
+  
+
+
+
+  //Convert from "rotaional speed" to "wind speed" in km/h 
+    wind_gust_max = 1.761 / (1 + rps_max) + 3.013 * rps_max;  // found here: https://www.amazon.de/gp/customer-reviews/R3C68WVOLJ7ZTO/ref=cm_cr_getr_d_rvw_ttl?ie=UTF8&ASIN=B0018LBFG8 (in German)
+    wind_gust = 1.761 / (1 + rps_avg) + 3.013 * rps_avg; // found here: https://www.amazon.de/gp/customer-reviews/R3C68WVOLJ7ZTO/ref=cm_cr_getr_d_rvw_ttl?ie=UTF8&ASIN=B0018LBFG8 (in German)
+    }else{
+      wind_gust_max = 0.01;
+      wind_gust = 0.01;     // this function is called every 15 secs Wind_Gust is defined as "Median Value betwwen 3-20sec"
+    }
+
     //Serial.print(Pulse_Array[0]); Serial.print("\t");Serial.print(Pulse_Array[1]);Serial.print("\t");Serial.print(Pulse_Array[2]);Serial.print("\t");Serial.print(Pulse_Array[3]);Serial.print("\t");Serial.print(Pulse_Array[4]);Serial.print("\t");Serial.print(Pulse_Array[5]);Serial.print("\t");Serial.print(Pulse_Array[6]);Serial.print("\t");Serial.print(Pulse_Array[7]);Serial.print("\t");Serial.print(Pulse_Array[8]);Serial.print("\t");Serial.print(Pulse_Array[9]);
     //Serial.println();
 
 
-
-        
-    //Clear Array
+  //Clear Array
     for(int b=0; b<=i_wind+1; b++) Pulse_Array[b] = 0;
     i_wind2 = i_wind;
     i_wind = 1;
     Pulse_Array[0]=1;
     Pulse_Array[1]=1;
     //Serial.println();
-    //Serial.print(wind_avg); Serial.print(wind_gust); Serial.print("\t");
+
     //Serial.print(Pulse_Array[0]); Serial.print("\t");Serial.print(Pulse_Array[1]);Serial.print("\t");Serial.print(Pulse_Array[2]);Serial.print("\t");Serial.print(Pulse_Array[3]);Serial.print("\t");Serial.print(Pulse_Array[4]);Serial.print("\t");Serial.print(Pulse_Array[5]);Serial.print("\t");Serial.print(Pulse_Array[6]);Serial.print("\t");Serial.print(Pulse_Array[7]);Serial.print("\t");Serial.print(Pulse_Array[8]);Serial.print("\t");Serial.print(Pulse_Array[9]);
     //Serial.println();
-    
-    attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,RISING);
 
+
+    dtostrf(wind_gust_max, 10, 2, wind_gustmaxtopic);//convert float to char
+    dtostrf(wind_gust, 10, 2, wind_gusttopic);//convert float to char
+
+    client.publish(MQTT_SENSOR_TOPIC_gustmax, wind_gustmaxtopic, true);
+    client.publish(MQTT_SENSOR_TOPIC_gust, wind_gusttopic, true);
+    
+    published_data_counter();
+
+
+    ArduinoOTA.handle();
+
+    if (published_data >= 20 ){     //nach 20 mal "publishing wind" (~3,85sec) wird folgender befehl ausgeführt --> ~1,33min; 
+      if (millis() >= 30000) publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, wind_gust, wind_mittelwert);    // Publish Data to MQTT Broker for all sensors expect technique    
+      
+    }
+
+    attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); //was RISING
+      
+}
+
+
+void wind_sum_up(){
+
+  //detachInterrupt(digitalPinToInterrupt(input_pin1));
+  //wind_collection++;
+  
+  
+  
+    // float ct5000 = 600000 / cycle_time5 ;  //max Number of runs = 10mins = 600sec = 600.000msec
+    // ct5=(int)ct5000;
+  
+   
+    //Numberofpoints = 240; //600 / ((factor/1000) * REPORT_INTERVAL); // always 10 minutes
+    
+   
+  //  if (number_of_runs <= 240) {
+  //    Numberofpoints = number_of_runs;
+  //  }else{
+  //    Numberofpoints = 240;
+  //  }
+    
+    //wind_mittelwert = ((wind_mittelwert * Numberofpoints) + wind_gust) / (Numberofpoints +1);  // calculate median value of 10 minutes
+  
+  float ten_min_max_value = 600 / wind_factor;       //"wind_factor" Value should be = 3 ---> alle 3 sec wird eine Böe gemessen windgeschwindigkeit wird über 10min gemittelt
+  int max_value = round(ten_min_max_value);
+  
+  number_of_runs++;  //do not reset to 0
+  
+  if (index_wind >= max_value) index_wind = 0;  //start again as soon as index wind is >=40
+  
+  wind_array[index_wind] = wind_gust;
+  
+  wind_mittelwert = 0;
+  
+  if (number_of_runs < max_value) {                                                                    //do this at startup until number_of_runs =40
+    for(int c=0; c<number_of_runs; c++) wind_mittelwert = wind_mittelwert + wind_array[c] ;
+    wind_mittelwert = wind_mittelwert / (number_of_runs);
+   }else{                                                                                       //do this as soon as number_of_runs =40 or higher
+    for(int c=0; c<max_value; c++) wind_mittelwert = wind_mittelwert + wind_array[c] ;           
+    wind_mittelwert = wind_mittelwert / max_value;
+   }
+  
+    
+  index_wind++;
+  
+  
+  dtostrf(wind_mittelwert, 10, 2, wind_topic);//convert float to char
+  client.publish(MQTT_SENSOR_TOPIC_wind, wind_topic, true);
+
+  //FiltVal= ((FiltVal * FF) + NewVal) / (FF +1);  
+  
+ 
+//attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING); //was rising
+
+}   
+
+
+
+
+
+  void published_data_counter(){
+  published_data++;
+  //Numberofpoints = 600 / ((factor/1000) * REPORT_INTERVAL);
+  
+//if (number_of_runs >= 240)  ESP.restart();
+  
+  if (published_data >= 21){     // all 10 min ---> 30sec * 20 = 600sec = 10min
+ 
+    published_data = 0;
+  }
+ 
   }
 
 void stromzaehler() {
+      
+      Pulse_Array[0]=1;
+      Pulse_Array[1]=1;
+      
+    if (i_wind >=3){ 
+      
+      detachInterrupt(digitalPinToInterrupt(input_pin1)); 
+      
+      i_wind2 = i_wind;
+      //long test_start = micros();
+      float duration_sec_avg = (Pulse_Array[i_wind-1]);
+          
+      //Clear Array
+      for(int b=0; b<=i_wind+1; b++) Pulse_Array[b] = 0;
+      //i_wind2 = i_wind;
+      
+      i_wind = 1;
+         
+      attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING);
   
-  long test_start = micros();
-    detachInterrupt(digitalPinToInterrupt(input_pin1));
-
-    Pulse_Array[0]=1;
-    Pulse_Array[1]=1;
-    float rps_avg = 0.001;
-    float duration_sec_avg = (Pulse_Array[i_wind-1]);
+      Pulse_Array[0]=1;
+      Pulse_Array[1]=1;
+    
+    
+    
     //Serial.print("i_wind-1: "); Serial.print(i_wind-1);Serial.print("\t"); Serial.print("Pulse_Array[i_wind-1]: "); Serial.print(Pulse_Array[i_wind-1]); Serial.print("\t");
 
     
     //Calculate average "Power consumption"
-    if (i_wind >=3){
+    
       
-      long rps_avg1 = (duration_sec_avg / (i_wind-2) ); //computing average time per pulse (in µs)
+      float average_lost_pulses_per_minute = 0.46; 
+      wind3 = i_wind2 - 1 + average_lost_pulses_per_minute;
+      
+      //long rps_avg1 = (duration_sec_avg / (i_wind2-1) ); //computing average time per pulse (in µs)
+      long rps_avg1 = (duration_sec_avg / wind3 ); //computing average time per pulse (in µs)
           
       float rps_avg2 = rps_avg1 * 0.000001; //Convert from µs to seconds
-      rps_avg = 1/ rps_avg2; //Kehrwert; conversionfrom "Seconds per Pulse" in "Pulses per second"
+      float rps_avg = 1/ rps_avg2; //Kehrwert; conversionfrom "Seconds per Pulse" in "Pulses per second"
       power_avg = rps_avg * 360; //convert from "pulses per second" to "W" (10000 Pulses per kWh)
-      energy_avg = energy_avg + ((i_wind-2) * 0.1); //convert from "pulses" to "Wh" (10 Pulses per Wh)
-      energy_day = energy_day + ((i_wind-2) * 0.1);
-      energy_month = energy_month + ((i_wind-2) * 0.1);
+      
+      //energy_avg = energy_avg + ((i_wind2-1) * 0.1); //convert from "pulses" to "Wh" (10 Pulses per Wh)
+      energy_avg = energy_avg + (wind3 * 0.1); //convert from "pulses" to "Wh" (10 Pulses per Wh)
+      
+      //energy_day = energy_day + ((i_wind2-1) * 0.1);
+      energy_day = energy_day + (wind3 * 0.1);
+      
+      //energy_month = energy_month + ((i_wind2-1) * 0.1);
+      energy_month = energy_month + (wind3 * 0.1);
       
     // Serial.println(); Serial.print("rps_avg1: "); Serial.print(rps_avg1); Serial.print("\t");Serial.print("rps_avg2: "); Serial.print(rps_avg2,4); Serial.print("\t"); Serial.print("rps_avg2: "); Serial.print(rps_avg2,4);
     
     }else{
-//      power_max=0.2;
-//      power_max2=0.2;
-//      power_avg=0.2;
-//      energy_avg=0.2
+        //read_energy_PWM();
         
-        read_energy_PWM();
-    }
-    
-
-  //Calculate maximum "Power consumption"
-    power_max = 0.1;  //Initiate maximum Power variable with a very low number.
-    if (i_wind >=3){
-  
-      for (int a=1; a <= i_wind-3; a=a+1){  
-    
-      //Bestimmen der Einzeldrehzahlen aus dem Array
-      long array_diff = (Pulse_Array[a+1]-Pulse_Array[a]);
-      float duration_sec_2 = array_diff*0.000001;         //Time from 1 Pulse to the next
-      float rps_2 = 1  / (duration_sec_2);                //Kehrwert; conversionfrom "Seconds per Pulse" in "Pulses per second"
-      power_max = rps_2 * 360;                                //convert from "pulses per second" to "W" (10000 Pulses per Watt)
-      //Serial.println(); Serial.print("power_max: "); Serial.print(power_max); Serial.print("\t");Serial.print(power_max2);
-      
-   //Serial.print("array_diff: "); Serial.print(array_diff); Serial.print("\t"); Serial.print("rps_2: "); Serial.print(rps_2); Serial.print("\t");
-        
-     //Speichern des Maxwerts
-        if (power_max2 <= power_max){
-          power_max2 = power_max;
-        }
-        //Serial.println(); Serial.print("duration_sec_2: "); Serial.print(duration_sec_2); Serial.print("\t");
+        if (power_avg <= 0.05) {
+          power_avg = 0.1;
+        }else{
+          power_avg = 0.01;
       }
     }
-    
+
+
    
-    //Clear Array
-    for(int b=0; b<=i_wind+1; b++) Pulse_Array[b] = 0;
-    i_wind2 = i_wind;
-    i_wind = 1;
-    Pulse_Array[0]=1;
-    Pulse_Array[1]=1;
-    
-    
-    attachInterrupt(digitalPinToInterrupt(input_pin1),Interrupt,FALLING);
+   if (i_wind2 >=999) publishData(temp_average, hum_average, atmospheric_pressure, Taupunkt_mittel, Absolute_Feuchte_mittel, lux, co2_pwm, power_avg, power_avg); 
+   
+
 
 //long test_end = micros() - test_start;
 //Serial.println(); Serial.print("dauer Stromzaehler[µs] "); Serial.print(test_end); Serial.print("\t");
 
 }
-
-void wind_sum_up(){
-wind_collection++;
-  //save maximum wind speed over multiple "void Loop()" runs
-  if (wind_gust_max <= wind_gust) wind_gust_max = wind_gust;
-
-  //save average wind speeds over multiple "void Loop()" runs
-  wind_avg1 = wind_avg1+wind_avg;
-
-  wind_avg_avg = wind_avg1/wind_collection;
-  //Serial.println();
-  //Serial.print("wind_avg1:"); Serial.print(wind_avg1); Serial.print("\t"); Serial.print("wind_collection:"); Serial.print(wind_collection); Serial.print("\t");
-}   
-
-  void data_published(){
-  wind_avg1 = 0;
-  wind_collection = 0;
-  wind_gust_max = 0;
-  }
-
 
 
 //String float2str(float f, int n) {
