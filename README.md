@@ -37,7 +37,15 @@ This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the follo
   - Calculate Dew Point
   - Sent automatic Status Information via Pushingbox
   - Automatically select WiFi with best signal strenght
-      
+
+      Pinning of your NodeMCU pins where your sensors are connected:
+- D1    //Connect Speed Sensor (Wind Sensor)
+- D2    //Connect Pulse Sensor (Energy Sensor)
+- D4    // this Connects DHT22 to NodeMCU Pin D4
+- D5    //defines the i2C Clock Pin on D5
+- D6    //defines the i2C Data Pin on D6
+- D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
+- D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
     
 You will need the following Arduino Libraries:
 - ESP8266WiFi.h
@@ -47,7 +55,7 @@ You will need the following Arduino Libraries:
 - WiFiAutoSelector.h //https://gist.github.com/AndiSHFR/e9c46890af7cddff6cb5ea7d4f1c5c49
 - Wire.h
 - Adafruit_SHT31.h
-- Adafruit_BMP280.h
+- Adafruit_BMP3XX.h
 - Adafruit_MCP9808.h
 - NTPClient.h
 - WiFiUdp.h
@@ -56,16 +64,26 @@ You will need the following Arduino Libraries:
 - PubSubClient.h
 - mhz19.h
 - SoftwareSerial.h
+- Adafruit_MCP4725.h
+- ESP8266mDNS.h
+- ArduinoOTA.h
+- BH1750.h
+- StreamUtils.h
+- VL53L0X.h
+- VL6180X.h
+- Adafruit_GFX.h
+- Adafruit_SSD1306.h
+- EEPROM.h
+- Fonts/FreeSans9pt7b.h
+- Fonts/FreeSerif9pt7b.h
+- Fonts/FreeMono9pt7b.h
+- Fonts/FreeSansOblique9pt7b.h
+- IRremoteESP8266.h
+- IRsend.h
+- ir_Midea.h
 
 
-Pinning of your NodeMCU pins where your sensors are connected:
-- D1    //Connect Speed Sensor (Wind Sensor)
-- D2    //Connect Pulse Sensor (Energy Sensor)
-- D4    // this Connects DHT22 to NodeMCU Pin D4
-- D5    //defines the i2C Clock Pin on D5
-- D6    //defines the i2C Data Pin on D6
-- D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
-- D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
+
 
 
 No Power Saving Modes are implemented, so Powering without batteries is recommended.
