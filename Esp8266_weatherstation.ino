@@ -5,6 +5,18 @@
 //         Maxim DB18b20 Temperature sensor
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 //Included Libraries
 #include <ESP8266WiFi.h>
 #include <DHT.h>
@@ -25,6 +37,8 @@
 #include <ArduinoOTA.h>
 #include <BH1750.h>
 #include <StreamUtils.h>
+//#include "Adafruit_VL6180X.h"
+//#include "Adafruit_VL53L0X.h"
 #include <VL53L0X.h>
 #include <VL6180X.h>
 #include <Adafruit_GFX.h>
@@ -68,6 +82,9 @@
   //15 = Inside Sensor 15 Tank2
   //16 = Inside Sensor 16 Friwa2
   //17 = Inside Sensor 17 Friwa1
+  //18 = Inside Sensor 18 FriwaV  
+  //19 = Inside Sensor 19 WP
+  //20 = Inside Sensor 20 Tank3
   
 
 // Define Updaterate of the whole loop
@@ -146,7 +163,7 @@
 //  is valid.
 
 // This is the "Callback function header"
-void callback(char* topic, byte* payload, unsigned int length);
+void callback(char* topic1, byte* payload, unsigned int length);
 
 // this defines the Type of DHTxx Sensor
   #define DHTTYPE DHT22 
@@ -317,8 +334,11 @@ void callback(char* topic, byte* payload, unsigned int length);
   int vent_office = 0;
   int vent_kids = 0;
   int vent_sleep = 0;  
-float wind_array[244];
+  float wind_array[244];
   int analog_readings;
+  int rain_temp;
+  int rain_temp_upper_border = 967;
+  int rain_temp_lower_border = 700;
   uint8_t climate_temp = 24;
   String climate_power = "OFF";
   String climate_mode = "off";
@@ -379,6 +399,12 @@ float cycle_time5 = 30000;
 float cycle_time = 0;
 int ct5 = 30;
 int wind_factor = 3;
+char* topic;
+char* part2 = "/status";
+int intPayload;
+double doublePayload;
+String stringPayload;
+char char_payload[10];
 
 
     //if (Client_Number == "14"){
@@ -471,6 +497,10 @@ void setup() {
     if (Client_Number == "15") room_name="Tank2";  
     if (Client_Number == "16") room_name="Friwa2";  
     if (Client_Number == "17") room_name="Friwa1";  
+    if (Client_Number == "18") room_name="FriwaV";   
+    if (Client_Number == "19") room_name="WP";  
+    if (Client_Number == "20") room_name="Tank3";  
+
       
 
   // MQTT: ID
@@ -728,6 +758,8 @@ void setup() {
    //Connect to MQTT
     MQTT_connect();
     client.loop();
+    
+ 
    
    //Sent MQTT Auto Discovery Topic to MQTT Broker, to realize Auto Discovery in HomeAssistant
   //sendMQTTDiscoveryMsg(String Sensor_kind ,  String unit ,  String Device_class ,  String Value_template ,  String State_Topic); 
@@ -749,7 +781,16 @@ void setup() {
     if (Client_Number == "0") sendMQTTDiscoveryMsg("AirPressure" ,  "mbar" ,  "PRESSURE" ,  "{{value_json.P}}" ,  String(MQTT_SENSOR_TOPIC));     
     if (Client_Number == "0") sendMQTTDiscoveryMsg("Lux1" , "lx" ,  "ILLUMINANCE" ,  "" ,  String(MQTT_SENSOR_TOPIC_lux1)); 
     if (Client_Number == "0") sendMQTTDiscoveryMsg("Lux2" , "lx" ,  "ILLUMINANCE" ,  "" ,  String(MQTT_SENSOR_TOPIC_lux2)); 
-    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain" , "mm" ,  "" ,  "{{(((value|float/12)-86)*(-1))|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));   
+    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain_indicator" , "mm" ,  "" ,  "{{value|int}}" ,  String(MQTT_SENSOR_TOPIC_rain)); 
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain" , "mm" ,  "" ,  "{{value}}" ,  String(MQTT_SENSOR_TOPIC_rain)); 
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain2" , "mm" ,  "" ,  "" ,  String(MQTT_SENSOR_TOPIC_rain));   
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain3" , "mm" ,  "" ,  "{{(((value|float/1)-0)*(1))|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain)); 
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain4" , "mm" ,  "" ,  "{{(((value|int/1)-0)*(1))|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));    
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain5" , "mm" ,  "" ,  "{{value|int|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));  
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain6" , "mm" ,  "" ,  "{{value}}" ,  String(MQTT_SENSOR_TOPIC_rain)); 
+//    if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain7" , "mm" ,  "" ,  "{{value|int|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));   
+//   if (Client_Number == "0") sendMQTTDiscoveryMsg("Rain" , "mm" ,  "" ,  "{{(((value|float/2.67)-362)*(-1))|round(0)}}" ,  String(MQTT_SENSOR_TOPIC_rain));  
+  
  //   if (Client_Number == "0") sendMQTTDiscoveryMsg("Gust" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_gust));     
  //   if (Client_Number == "0") sendMQTTDiscoveryMsg("Wind" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind));     
 //    if (Client_Number == "0") sendMQTTDiscoveryMsg("W_med" , "km/h" ,  "WIND_SPEED" ,  "" ,  String(MQTT_SENSOR_TOPIC_wind_median));    
@@ -845,10 +886,13 @@ unsigned long time1 = millis();
   
     if (sht1_found == true) sht31_temp = sht31.readTemperature() + offset_temp;
     if (sht1_found == true) sht31_humidity = sht31.readHumidity() + offset_hum;
+    if (sht1_found == false) sht31_temp = 0.01 ;
+    if (sht1_found == false) sht31_humidity = 0.01 ;
+    
     if (sht2_found == true) sht31_2_temp = sht31_2.readTemperature() + offset_temp - 0.15;
     if (sht2_found == true) sht31_2_humidity = sht31_2.readHumidity() + offset_hum;
-    if (sht2_found == false) sht31_2_temp = 0.0 / 0.0;
-    if (sht2_found == false) sht31_2_humidity = 0.0 / 0.0;
+    if (sht2_found == false) sht31_2_temp = 0.01 ;
+    if (sht2_found == false) sht31_2_humidity = 0.01 ;
   unsigned long time4 = millis();
 
     analog_readings = analogRead(A0);
@@ -1067,7 +1111,10 @@ if (light2_found == true) lux2 = lightMeter2.readLightLevel();
    
     if (isnan(sht31_3_temp)) {
       ++ausfaelle;
-      sht31_3_temp = 0;
+      if (Client_Number == "0")sht31_3_temp = 0;     
+      if (Client_Number != "0")sht31_3_temp = 23.33;   
+
+      
     }
   
     if (ausfaelle == 4){
@@ -1815,6 +1862,8 @@ if(WiFi.status() != WL_CONNECTED) {
 
   //taupunkt berechnen
   // See: http://www.wetterochs.de/wetter/feuchte.html
+
+
   
 float Taupunkt_berechnen(float Temp2, float feuchte)
 {
@@ -1823,7 +1872,7 @@ float b;
 float Saettigungsdampfdruck;
 float Dampfdruck;
 float v;
-float Taupunkt;
+float Taupunkt = 0.00;
 float absolute_Feuchte;
 
 float molekulargewicht_wasserdampf;
@@ -1860,6 +1909,7 @@ if(Temp2 >= 0) {
 bTp = 237.7;          // fuer Formel Taupunkt
 taupunktTmp = ((aTp * Temp2) / (bTp + Temp2)) + log(feuchte / 100);
 Taupunkt_alt = (bTp * taupunktTmp) / (aTp - taupunktTmp);
+if(feuchte <= 0.1) Taupunkt = 0.00;
 return Taupunkt ; 
   }
 
@@ -2302,10 +2352,10 @@ Special:
   
 
  String room_name2 = String(room_name);
- String add_string = String("Room_Sensor");
+ String add_string = String("Room");
  room_name2.toLowerCase();
+ char char_current_ip[20];
  
-
   //String discoveryTopic = "homeassistant/sensor/" + String(State_Topic) + "/" + Sensor_kind +"/config";
   // String discoveryTopic = "homeassistant/sensor/" + String(State_Topic) + "/config"; MQTT_SENSOR_TOPIC
   
@@ -2313,11 +2363,15 @@ Special:
   
   String discoveryTopic = "homeassistant/sensor/" + String(MQTT_SENSOR_TOPIC) + "/" + Sensor_kind +"/config";
   
+  itoa(WiFi.localIP(), char_current_ip, 20);//convert int to char
+  //String currentip = String(char_current_ip);
+  String currentip = String(WiFi.localIP().toString().c_str());
+  
   DynamicJsonDocument doc(512);
   char buffer[512];
 
-  doc["name"] = Sensor_kind +" " + String(room_name);    //Name of the Entity in Home Assistant
-  
+  doc["name"] = Sensor_kind; // +" " + String(room_name);    //Name of the Entity in Home Assistant
+  //doc["name"] = String("null");    //Name of the Entity in Home Assistant  
   Sensor_kind.toLowerCase();
   doc["obj_id"] = room_name2 +"_" + Sensor_kind;   //Entity ID in Home Assistant
   doc["uniq_id"] = room_name2 +"_" + Sensor_kind;   // Should be identical to obj_id
@@ -2333,11 +2387,12 @@ Special:
 
   
   JsonObject device = doc.createNestedObject("device");                          // create substructure in JSON
-  device["name"] = add_string +"_" + String(room_name);                                                // define Device name where entity is part of it
-  device["sa"] = add_string +"_" + room_name2;                                                  // define Device name where entity is part of it
-  device["mdl"] = add_string +"_" + String("DIY");                                                  // define Device name where entity is part of it    
-  device["mf"] = add_string +"_" + String("DIY");                                                  // define Device name where entity is part of it   
-  device["sw"] = add_string +"_" + String("1.0");                                                  // define Device name where entity is part of it   
+  device["name"] = add_string +" " + String(room_name);                                                // define Device name where entity is part of it
+  device["sa"] = add_string +" " + room_name2;                                                  // define Device name where entity is part of it
+  device["mdl"] = add_string +" " + String("DIY");                                                  // define Device name where entity is part of it    
+  device["mf"] = add_string +" " + String("DIY");                                                  // define Device name where entity is part of it   
+  device["sw"] = add_string +" " + String("9.4");                                                  // define Device name where entity is part of it 
+  device["cu"] = String("http://") + currentip;                                                     // define Device name where entity is part of it     
   device["ids"][0] = add_string +"_" + room_name2;                                                  // define Device name where entity is part of it
  
   
@@ -2461,6 +2516,14 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
   //Serial.println("");
 
 
+  if (Client_Number == "0"){
+    rain_temp = analog_readings;
+    if (rain_temp >= rain_temp_upper_border) rain_temp = rain_temp_upper_border;
+    if (rain_temp <= rain_temp_lower_border) rain_temp = rain_temp_lower_border;
+    rain_temp = round( (rain_temp / -2.67) + 362 );
+  }  
+
+
   dtostrf(energy_day, 10, 2, daytopic);//convert float to char
   dtostrf(energy_month, 10, 2, monthtopic);//convert float to char
   dtostrf(energy_avg, 10, 2, overalltopic);//convert float to char
@@ -2479,7 +2542,7 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
   //dtostrf(wind_mittelwert2, 10, 2, wind_mediantopic2);//convert float to char
   
   dtostrf(room_humidity, 10, 2, room_humiditytopic);//convert float to char
-  dtostrf(analog_readings, 10,2, analog_readingstopic);
+  dtostrf(rain_temp, 10,2, analog_readingstopic);
   
   itoa(climate_temp, climate_temp_topic, 10);//convert int to char
   itoa(vent_kids, vent_kids_topic, 10);//convert int to char
@@ -2527,6 +2590,7 @@ void publishData(float p_temperature, float p_humidity, float p_pressure, float 
 client.publish(MQTT_SENSOR_TOPIC_temp2,temptopic2, true);
 client.publish(MQTT_SENSOR_TOPIC_hum2,humtopic2, true);    
 
+
     if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_temp3,temptopic3, true);
     if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_hum3,humtopic3, true);
     if (Client_Number == "0") client.publish(MQTT_SENSOR_TOPIC_lux1,lux1topic, true);
@@ -2556,6 +2620,7 @@ client.publish(MQTT_SENSOR_TOPIC_hum2,humtopic2, true);
     if (Client_Number == "10") client.publish("Ventilation_Kids/available", publishtopic1);
     
     if (Client_Number == "10") client.publish("Heating/Switch/status",publishtopic1); 
+ // if (Client_Number == "10") client.publish("Heating/Power/status",char_payload); 
     if (Client_Number == "10") client.publish("Heating/available", publishtopic1);
     if (Client_Number == "10") client.publish("Heating/Switch",publishtopic1); 
  
@@ -2570,6 +2635,13 @@ client.publish(MQTT_SENSOR_TOPIC_hum2,humtopic2, true);
     if (Client_Number == "13") client.publish("Sprudler/switch/status",publishtopic1);     
     if (Client_Number == "13") client.publish("Sprudler/available", publishtopic1); 
     if (Client_Number == "13") client.publish("Sprudler/Amount/status", water_time_topic, true);  
+   
+    if (Client_Number == "19") client.publish("WP/Switch/status",publishtopic1);    
+    if (Client_Number == "19") client.publish("WP/Switch",publishtopic1);    
+    if (Client_Number == "19") client.publish("WP/available", publishtopic1);  
+       
+   
+  
    
     if (Client_Number == "14"){
       if (millis() >= 60000){
@@ -2616,7 +2688,7 @@ void publishData2() {
   dtostrf(wind_mittelwert, 10, 2, wind_topic);//convert float to char  
 //  dtostrf(wind_mittelwert, 10, 2, wind_mediantopic);//convert float to char
  // dtostrf(wind_mittelwert2, 10, 2, wind_mediantopic2);//convert float to char
-  dtostrf(analog_readings, 10,2, analog_readingstopic);
+  dtostrf(rain_temp, 10,2, analog_readingstopic);
  
   
   //char data[270];
@@ -2650,27 +2722,31 @@ void MQTT_subscribe(){
    if (Client_Number == "10"){                      //technique
     client.subscribe("Ventilation_Office/Power");
     client.publish("Ventilation_Office/switch/status",publishtopic1);
-    client.publish("Ventilation_Office/switch",publishtopic1);    
+    client.publish("Ventilation_Office/switch",publishtopic1); 
+    client.publish("Ventilation_Office/available", publishtopic1);     
     
     client.subscribe("Ventilation_Sleep/Power");
     client.publish("Ventilation_Sleep/switch/status",publishtopic1);
     client.publish("Ventilation_Sleep/switch",publishtopic1);    
+    client.publish("Ventilation_Sleep/available", publishtopic1);
     
     client.subscribe("Ventilation_Kids/Power");
     client.publish("Ventilation_Kids/switch/status",publishtopic1);
     client.publish("Ventilation_Kids/switch",publishtopic1);
+    client.publish("Ventilation_Kids/available", publishtopic1);
       
     //client.subscribe("homeassistant/sensor/energy/state");
-    client.subscribe("homeassistant/sensor/energy/all");
+    //client.subscribe("homeassistant/sensor/energy/all");
     //client.subscribe("homeassistant/sensor/energy/retain");
-    client.subscribe("homeassistant/sensor/energy_day/state");
-    client.subscribe("homeassistant/sensor/energy_month/state");
+    //client.subscribe("homeassistant/sensor/energy_day/state");
+    //client.subscribe("homeassistant/sensor/energy_month/state");
     //client.subscribe("homeassistant/sensor/energy/last_day");
-    client.subscribe("homeassistant/sensor/energy/last_month");
+    //client.subscribe("homeassistant/sensor/energy/last_month");
     //client.subscribe("homeassistant/sensor/energy_pre");
     
-    client.publish("Heating/Switch/status ",publishtopic1);    
-    client.publish("Heating/Switch",publishtopic1);      
+    client.publish("Heating/Switch/status",publishtopic1);    
+    client.publish("Heating/Switch",publishtopic1);    
+    client.publish("Heating/available", publishtopic1);  
     client.subscribe("Heating/Power");    
    
   }
@@ -2698,10 +2774,478 @@ void MQTT_subscribe(){
  
  }
 
+   if (Client_Number == "19"){                      //WP
+        
+    client.publish("WP/Switch/status",publishtopic1);    
+    client.publish("WP/Switch",publishtopic1);    
+    client.publish("WP/available", publishtopic1);  
+    client.subscribe("WP/Power");    
+   
+  }
 
 
 }
 
+
+
+
+void callback_client_10(){                        //Technikraum
+  float test12 = 0;
+
+//Heater:
+  if (topic[8] =='P' ){                             //   Ziel: Heater           "Heating/Power"  Wertebereich: 0 - 1024 --> 0-10V  
+    test12 = intPayload + 5 ;
+    test12 = test12 / 10;
+    intPayload = (int)test12;                       //schneidet Nachkommastellen ab
+    if (intPayload >= 7) intPayload = 7;            //Heizung hat nur 7 Stufen
+    if (intPayload <= 0) intPayload = 0;            //Heizung hat nur 7 Stufen   
+
+   
+    
+    write_analog_output((intPayload*125)+50, 3);   //   Ziel: Heizstab              "Heating/Power"             Wertebereich: 0 - 1024 --> 0-10V
+    intPayload = intPayload * 10;    
+
+  }
+
+  // Heizstab:
+  // Leistungsstufe  Von bis Mittelwert
+        // 0        0,00      0,50
+        //          1,00  
+        // 1        1,25      1,75
+        //          2,25  
+        // 2        2,50      3,00
+        //          3,50  
+        // 3        3,75      4,25
+        //          4,75  
+        // 4        5,00      5,50
+        //          6,00  
+        // 5        6,25      6,75
+        //          7,25  
+        // 6        7,50      8,00
+        //          8,50  
+        // 7        8,75      9,25
+        //          9,75  
+    
+
+
+
+//Ventilation:
+  if (topic[8] !='P' ){                            //   Ziel: Alles außer Heater ---> Nur Ventilation 
+    if (intPayload >= 9) intPayload = 9;          //   Ventilation hat nur 9 Stufen
+  }
+  
+
+  if (topic[12] =='O' ) {                         //   Ziel: Büro & Dach           "Ventilation_Office/Power"  Wertebereich: 0 - 1024 --> 0-10V  
+    write_analog_output((intPayload*100)+25, 0);       
+    vent_office = intPayload;
+  }    
+
+  
+  if (topic[12] =='S' ) {                         //   Ziel: Schlafzimmer & Küche  "Ventilation_Sleep/Power"   Wertebereich: 0 - 1024 --> 0-10V 
+    write_analog_output((intPayload*100)+25, 1);    
+    vent_sleep = intPayload;  
+  }  
+
+  
+  if (topic[12] =='K' ) {                         //   Ziel: Fabio & Lia           "Ventilation_Kids/Power"    Wertebereich: 0 - 1024 --> 0-10V  
+    write_analog_output((intPayload*100)+25, 2);   
+    vent_kids = intPayload;    
+  }    
+   
+  //Ventilation:
+        //Funktion Steuerspannung        Min    Nenn   Max [V DC]
+        //Manuelle Steuerung            0,00 ≤ 0,25 ≤ 0,50
+        //Pausen-Funktion               1,00 ≤ 1,25 ≤ 1,50
+        //Wärmerückgewinnung Stufe 1    2,00 ≤ 2,25 ≤ 2,50
+        //Wärmerückgewinnung Stufe 2    3,00 ≤ 3,25 ≤ 3,50
+        //Wärmerückgewinnung Stufe 3    4,00 ≤ 4,25 ≤ 4,50
+        //Unknown                       5,00 ≤ 5,25 ≤ 5,50
+        //Durchlüftung Stufe 1          6,00 ≤ 6,25 ≤ 6,50
+        //Durchlüftung Stufe 2          7,00 ≤ 7,25 ≤ 7,50
+        //Durchlüftung Stufe 3          8,00 ≤ 8,25 ≤ 8,50
+        //Unknown                       9,00 ≤ 9,25 ≤ 9,50
+    
+
+}
+
+
+
+void callback_client_12(){                        //    Check Temp Sensor
+    if (topic[21] =='t' ) sht31_4_temp = doublePayload;
+    if (topic[21] =='h' ) sht31_4_humidity = doublePayload;
+}
+
+
+void callback_client_13(){                        //Sprudler
+      if (topic[9] =='s' ){                             //   Ziel:  "Sprudler/switch"
+        if (intPayload == 1) start_water_override = 1;
+        //client.publish("Sprudler/switch", publishtopic0, true);  
+      }  
+      //client.subscribe("Sprudler/switch");
+      // client.subscribe("Sprudler/Amount ");
+      //client.subscribe("Sprudler/Counter");   
+     
+      if (topic[9] =='A' ) water_time = intPayload *1000;      //   Ziel:  "Sprudler/Amount"
+
+      if (topic[9] =='C' ) water_counter = intPayload;    //   Ziel:  "Sprudler/Counter"
+        
+}
+
+
+void callback_client_14(){                        //Klimaanlage
+      
+   // client.publish("s14/available", publishtopic1); 
+    
+  if (topic[4] =='p' ){                   //if climate Power_Status was changed
+    //    climate_power = stringPayload;
+    //    climate_power.toCharArray(climate_power_topic, 10); //convert string to char
+    //    if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
+    //    if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);
+    //       if (stringPayload == "ON");
+    //       if (stringPayload == "OFF");
+  }
+ 
+  if (topic[4] =='m' ){                     //   Ziel: "s14/mode/set"    if climate Mode was changed
+    if (stringPayload != climate_mode) { 
+      //if (millis() >= 30000) {   
+        if (stringPayload == "off") {
+          ac.off();
+          offset_restart = 0;
+          //climate_power = "OFF";
+          
+        }
+                
+        if (stringPayload == "heat"){
+          ac.on();
+          ac.setMode(kMideaACHeat);
+          ac.setFan(fan_speed);
+          offset_restart = 36000000; //10 hours
+          //climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "auto"){
+          ac.on();
+          ac.setMode(kMideaACAuto);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+         // climate_power = "ON";
+          
+        }       
+  
+        if (stringPayload == "cool"){
+          ac.on();
+          ac.setMode(kMideaACCool);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000;//6hours
+          climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "dry"){
+          ac.on();
+          ac.setMode(kMideaACDry);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+          //climate_power = "ON";
+          
+        }
+  
+        if (stringPayload == "fan_only"){
+          ac.on();
+          ac.setMode(kMideaACFan);
+          ac.setFan(fan_speed);
+          offset_restart = 21600000; //6hours
+          //climate_power = "ON";
+          
+        }
+  
+          ac.setUseCelsius(true);
+          ac.setTemp(climate_temp, true);
+          
+          climate_mode = stringPayload;
+          ac.send(); 
+      //} 
+         // client.publish("s14/mode/state", (char*) stringPayload.c_str(), true);
+         // if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
+         // if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);   
+      }
+ 
+    }
+ 
+  if (topic[4] =='t' ){                   //    Ziel: "s14/temperature/set"   If AC Temp was changed
+    if (intPayload != climate_temp) {   
+      climate_temp = intPayload;
+      if (climate_mode != "off"){
+        //if (millis() >= 30000) {   
+          ac.setUseCelsius(true);
+          ac.setTemp(climate_temp, true);
+          ac.setFan(fan_speed);
+          ac.send(); 
+         // client.publish("s14/temperature/state", (char*) stringPayload.c_str(), true);
+        //}        
+      }    
+    }   
+  }
+  
+  if (topic[4] =='f' ){                   //    Ziel: "s14/fan/set"   If Fan Speed was changed
+    if (stringPayload != climate_fan){
+      if (climate_mode != "off"){     
+        if (stringPayload == "auto") {
+          ac.setFan(0);
+          fan_speed = 0;
+        }
+        if (stringPayload == "low") {
+          ac.setFan(1);
+          fan_speed = 1;
+        }
+        if (stringPayload == "medium") {
+          ac.setFan(2);
+          fan_speed = 2;
+        }
+        if (stringPayload == "high") {
+          ac.setFan(3);
+          fan_speed = 3;
+        }
+        ac.setUseCelsius(true);
+        ac.setTemp(climate_temp, true);
+        ac.send(); 
+      }      
+      
+      climate_fan = stringPayload;      
+      //client.publish("s14/fan/state", (char*) stringPayload.c_str(), true);
+    }   
+  }
+
+  // if (topic[4] =='s' ){
+  //   if (stringPayload != climate_swing){   
+  //     if (stringPayload == "on") ac.stateReset();
+  //     //if (stringPayload == "off") ac.stateReset();
+      
+  //     climate_swing = stringPayload;  
+  //     ac.send();   
+  //   }
+  // }
+  
+}
+
+
+
+void callback_client_19(){                        //Wärmepumpe
+  float volt_steps = 0;
+
+//Wärmepumpe:
+  if (topic[3] =='P' ){                             //   Ziel: Wärmepumpe           "WP/Power"  Wertebereich: 0 - 1024 --> 0-10V  
+    volt_steps = intPayload + 2 ;                   // Umrechnen von 100% in 20 Steps
+    volt_steps = volt_steps / 5;
+    intPayload = (int)volt_steps;                   //schneidet Nachkommastellen ab ---> Genau 20 Spannungsstufen
+    if (intPayload >= 20) intPayload = 20;            //WP hat nur 20 Stufen
+    if (intPayload <= 1) intPayload = 0;            //WP hat nur 20 Stufen Sufe 1 existiert nicht Sufe 1 = Stufe 0  
+
+   
+    
+    write_analog_output((intPayload*50)+5, 0);   //   Ziel: Heizstab              "WP/Power"             Wertebereich: 0 - 1024 --> 0-10V
+    write_analog_output((intPayload*50)+5, 1);   //   Ziel: Heizstab              "WP/Power"             Wertebereich: 0 - 1024 --> 0-10V
+    write_analog_output((intPayload*50)+5, 2);   //   Ziel: Heizstab              "WP/Power"             Wertebereich: 0 - 1024 --> 0-10V
+    write_analog_output((intPayload*50)+5, 3);   //   Ziel: Heizstab              "WP/Power"             Wertebereich: 0 - 1024 --> 0-10V
+    intPayload = intPayload * 5;    
+
+  }
+
+//Step  %          Vmin  Vmax P_heiz  P_el
+//00   0% Inaktiv     0   0,6     0
+//01   5% Leistung  nA    nA    350   170
+//02  10% Leistung  0,9   1,1   700   340
+//03  15% Leistung  1,4   1,6  1050   510
+//04  20% Leistung  1,9   2,1  1400   680
+//05  25% Leistung  2,4   2,6  1750   850
+//06  30% Leistung  2,9   3,1  2100  1020
+//07  35% Leistung  3,4   3,6  2450  1190
+//08  40% Leistung  3,9   4,1  2800  1360
+//09  45% Leistung  4,4   4,6  3150  1530
+//10  50% Leistung  4,9   5,1  3500  1700
+//11  55% Leistung  5,4   5,6  3850  1870
+//12  60% Leistung  5,9   6,1  4200  2040
+//13  65% Leistung  6,4   6,6  4550  2210
+//14  70% Leistung  6,9   7,1  4900  2380
+//15  75% Leistung  7,4   7,6  5250  2550
+//16  80% Leistung  7,9   8,1  5600  2720
+//17  85% Leistung  8,4   8,6  5950  2890
+//18  90% Leistung  8,9   9,1  6300  3060
+//19  95% Leistung  9,4   9,6  6650  3230
+//20  100% Leistung 9,9   10,1 7000  3400
+
+}
+
+
+
+
+
+
+
+// function called when a MQTT message arrived
+void callback(char* topic1, byte* payload, unsigned int length) {
+  
+  char chars_added[200];
+  topic = topic1;
+  part2 = "/status";
+  strcpy(chars_added, topic);
+  strcat(chars_added, part2);  
+  
+  payload[length] = '\0'; // Add a NULL to the end of the char* to make it useable as string https://www.arduino.cc/reference/de/language/variables/data-types/string/
+ 
+  intPayload = atoi((char *)payload); //Returs '0' when not numeric
+  doublePayload = atof((char *)payload); //Returs '0' when not numeric
+  stringPayload = String((char *)payload);
+  
+
+  
+  Serial.println();
+  Serial.print("MQTT Message arrived! TOPIC: [");  Serial.print(topic); Serial.print("]; ");
+  Serial.print("Payload: ["); Serial.print(intPayload); Serial.print(" is Integer; "); (" and "); Serial.print(stringPayload); Serial.print(" is String; "); Serial.print("] "); 
+  Serial.println();  
+  
+  
+ if (topic[0] =='L' ) ESP.restart();
+
+
+
+  if (Client_Number == "10"){               //Only techniqe
+      callback_client_10();
+  }
+
+  
+  if (Client_Number == "12"){             //Only Check
+      callback_client_12();
+  } 
+
+
+  if (Client_Number == "13"){          //Only Sprudler
+        callback_client_13(); 
+  }
+
+
+  if (Client_Number == "14"){               //Conrtol Air COnditioning (Only via IR LED connected to ESP8266)
+      callback_client_14();
+  }
+
+  
+  if (Client_Number == "19"){               //Wärmepumpe
+      callback_client_19();
+  }
+
+  if (intPayload <= 1 ) intPayload = 1;
+  itoa(intPayload, char_payload, 10);   //convert int to char
+
+  client.publish(chars_added,char_payload);
+
+  
+   Serial.println();        
+   Serial.print(chars_added);
+   Serial.print(" is Topic incl /status; ");
+   Serial.print(char_payload);
+   Serial.print(" is Char_Payload.");
+  
+   Serial.println();
+
+
+//if (Client_Number == "13") client.publish("Sprudler/switch", publishtopic0, true);  
+  
+//  if (millis() <= 40000){
+//    if (topic[28] =='a' ){
+//      if (energy_received ==false) {
+//       energy_avg = energy_avg + doublePayload; //   Energiemessung
+//       energy_received = true;
+//       reset_energy = energy_avg;
+//      }
+//    }
+//    if (topic[28] =='d' ){
+//      if (day_received ==false) {
+//       energy_day = energy_day + doublePayload; //   Energiemessung
+//       day_received = true;
+//      }
+//    } 
+//    if (topic[28] =='m' ){
+//      if (month_received ==false) {
+//       energy_month = energy_month + doublePayload; //   Energiemessung
+//       month_received = true;
+//      }
+//    }  
+//  }else{
+//    if (topic[28] =='a' ){
+//      if (reset_energy <= doublePayload) {
+//       energy_avg = doublePayload; //   Energiemessung
+//       energy_month = (today * 12000) - (12000) + energy_day; 
+//       //4014kWh per year = 11kWh per Day
+//       //4380kWh per year = 12kWh per Day 
+//       //4745kWh per year = 13kWh per Day 
+//       //5110kWh per year = 14kWh per Day    
+//       }
+//    }
+//  }
+
+
+
+    
+//  int int_first = intPayload / 10;
+//  int int_second = intPayload - (int_first*10);
+//
+//  int first_bit = int_first / 4;        //HIGH-Byte berechnen
+//  int second_bit = (int_first - (first_bit * 4)) / 2;
+//  int third_bit = int_first - (first_bit * 4) - (second_bit *2);  //LOW-Byte berechnen
+
+//  if (first_bit == 1) write_analog_output((int_second*100)+25, 2); 
+//  if (second_bit == 1) write_analog_output((int_second*100)+25, 1); 
+//  if (third_bit == 1) write_analog_output((int_second*100)+25, 0); 
+  
+
+ 
+  
+//  String stringOne =  String(*payload); //Returns ASCII Value of first character
+  
+  
+//    
+//    Serial.print((char *)payload);  //whole Message
+//    Serial.print(" is CharString; ");
+//    Serial.print(stringOne);
+//    Serial.print(" is String; ");
+//  
+//  for (int i = 0; i < length; i++) {    //Umwandeln von Byte in Character bzw String
+//    Serial.print((char)payload[i]); //Only one character 
+//
+//    Serial.print(" is Char with lenght; ");
+//  }
+
+
+
+
+
+  // Switch on the LED if an 1 was received as first character
+  
+//  if ((char)payload[0] == '0') {
+      //  
+      //    //digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
+      //    Serial.print("detected: 0");
+      ////    write_analog_output(100,0);
+      ////    write_analog_output(100,1);
+      ////    write_analog_output(100,2);
+      ////    write_analog_output(100,3);
+      //  }
+      //  
+      //  if ((char)payload[0] == '1') {
+      //    //digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
+      //    Serial.print("detected: 1");
+      ////    write_analog_output(200,0);
+      ////    write_analog_output(200,1);
+      ////    write_analog_output(200,2);
+      ////    write_analog_output(200,3);
+      //    // but actually the LED is on; this is because
+      //    // it is active low on the ESP-01)
+      //    //ESP.restart();                //restart ESP8266
+//  } 
+ 
+  
+}
 
 
 
@@ -2788,392 +3332,6 @@ delay(5000);
 
 
 
-
-// function called when a MQTT message arrived
-void callback(char* topic, byte* payload, unsigned int length) {
-  
-  char chars_added[200];
-  char* part1 = topic;
-  char* part2 = "/status";
-  
-  strcpy(chars_added, topic);
-  strcat(chars_added, part2);  
-  
-  Serial.println();
-  Serial.print("MQTT Message arrived! TOPIC: [");
-  Serial.print(topic);
-  
-  Serial.print("]; ");
-  //Serial.print(topic[4]);
-  Serial.print("Payload: [");
-  
-  
- if (topic[0] =='L' ) ESP.restart();
-
-
-  
-  payload[length] = '\0'; // Add a NULL to the end of the char* to make it useable as string https://www.arduino.cc/reference/de/language/variables/data-types/string/
- 
-  int intPayload = atoi((char *)payload); //Returs '0' when not numeric
-  double doublePayload = atof((char *)payload); //Returs '0' when not numeric
-  String stringPayload = String((char *)payload);
-  float test12 = 0;
-  
-if (Client_Number == "12"){             //Only Check
-  if (topic[21] =='t' ){
-    sht31_4_temp = doublePayload;
-  }
-  if (topic[21] =='h' ){
-    sht31_4_humidity = doublePayload;
-  }
-  } 
-
-  if (Client_Number == "13"){
-    if (topic[9] =='s' ){ 
-      if (intPayload == 1) start_water_override = 1;
-      //client.publish("Sprudler/switch", publishtopic0, true);  
-    }  
-    //client.subscribe("Sprudler/switch");
-   // client.subscribe("Sprudler/Amount ");
-   //client.subscribe("Sprudler/Counter");   
-     
-  if (topic[9] =='A' ){    
-    water_time = intPayload *1000;
-    
-    } 
-if (topic[9] =='C' ){    
-    water_counter = intPayload;
-    }             
-   }
-
-
-
-if (Client_Number == "14"){               //Conrtol Air COnditioning (Only via IR LED connected to ESP8266)
-    
-   // client.publish("s14/available", publishtopic1); 
-    
-  if (topic[4] =='p' ){
-//    climate_power = stringPayload;
-//    climate_power.toCharArray(climate_power_topic, 10); //convert string to char
-//    if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
-//    if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);
-//       if (stringPayload == "ON");
-//       if (stringPayload == "OFF");
-  }
- 
-  if (topic[4] =='m' ){                     //if climate Mode was changed
-    if (stringPayload != climate_mode) { 
-      //if (millis() >= 30000) {   
-        if (stringPayload == "off") {
-          ac.off();
-          offset_restart = 0;
-          //climate_power = "OFF";
-          
-        }
-                
-        if (stringPayload == "heat"){
-          ac.on();
-          ac.setMode(kMideaACHeat);
-          ac.setFan(fan_speed);
-          offset_restart = 36000000; //10 hours
-          //climate_power = "ON";
-          
-        }
-  
-        if (stringPayload == "auto"){
-          ac.on();
-          ac.setMode(kMideaACAuto);
-          ac.setFan(fan_speed);
-          offset_restart = 21600000; //6hours
-         // climate_power = "ON";
-          
-        }       
-  
-        if (stringPayload == "cool"){
-          ac.on();
-          ac.setMode(kMideaACCool);
-          ac.setFan(fan_speed);
-          offset_restart = 21600000;//6hours
-          climate_power = "ON";
-          
-        }
-  
-        if (stringPayload == "dry"){
-          ac.on();
-          ac.setMode(kMideaACDry);
-          ac.setFan(fan_speed);
-          offset_restart = 21600000; //6hours
-          //climate_power = "ON";
-          
-        }
-  
-        if (stringPayload == "fan_only"){
-          ac.on();
-          ac.setMode(kMideaACFan);
-          ac.setFan(fan_speed);
-          offset_restart = 21600000; //6hours
-          //climate_power = "ON";
-          
-        }
-  
-          ac.setUseCelsius(true);
-          ac.setTemp(climate_temp, true);
-          
-          climate_mode = stringPayload;
-          ac.send(); 
-      //} 
-         // client.publish("s14/mode/state", (char*) stringPayload.c_str(), true);
-         // if (climate_power == "OFF") client.publish("s14/power/set/status", publishtopic0, true);
-         // if (climate_power == "ON") client.publish("s14/power/set/status", publishtopic1, true);   
-    }
- 
-  }
- 
-  if (topic[4] =='t' ){                   //If AC Temp was changed
-    if (intPayload != climate_temp) {   
-      climate_temp = intPayload;
-      if (climate_mode != "off"){
-        //if (millis() >= 30000) {   
-          ac.setUseCelsius(true);
-          ac.setTemp(climate_temp, true);
-          ac.setFan(fan_speed);
-          ac.send(); 
-         // client.publish("s14/temperature/state", (char*) stringPayload.c_str(), true);
-        //}        
-      }    
-    }   
-  }
-  
-  if (topic[4] =='f' ){                   //If Fan Speed was changed
-  if (stringPayload != climate_fan){
-    if (climate_mode != "off"){     
-      if (stringPayload == "auto") {
-        ac.setFan(0);
-        fan_speed = 0;
-      }
-      if (stringPayload == "low") {
-        ac.setFan(1);
-        fan_speed = 1;
-      }
-      if (stringPayload == "medium") {
-        ac.setFan(2);
-        fan_speed = 2;
-      }
-      if (stringPayload == "high") {
-        ac.setFan(3);
-        fan_speed = 3;
-      }
-      ac.setUseCelsius(true);
-      ac.setTemp(climate_temp, true);
-      ac.send(); 
-    }      
-    climate_fan = stringPayload;      
-    //client.publish("s14/fan/state", (char*) stringPayload.c_str(), true);
- }   
- }
-
-  // if (topic[4] =='s' ){
-  //   if (stringPayload != climate_swing){   
-  //     if (stringPayload == "on") ac.stateReset();
-  //     //if (stringPayload == "off") ac.stateReset();
-      
-  //     climate_swing = stringPayload;  
-  //     ac.send();   
-  //   }
-  // }
-}
-
-
-
-if (Client_Number == "10"){               //Only techniqe
-  
-  
-  if (topic[8] =='P' ){
-    test12 = intPayload + 5 ;
-    test12 = test12 / 10;
-    intPayload = (int)test12;   //schneidet Nachkommastellen ab
-    if (intPayload >= 7) intPayload = 7;     //Heizung hat nur 7 Stufen
-    if (intPayload <= 0) intPayload = 0;     //Heizung hat nur 7 Stufen    
-  }
-
-if (topic[12] !='t' ){
-    if (intPayload >= 9) intPayload = 9;   //Ventilation hat nur 9 Stufen
-  }
-  
-
-
-  if (topic[12] =='O' ) {
-    write_analog_output((intPayload*100)+25, 0);       //   Ziel: Büro & Dach           "Ventilation_Office/Power"  Wertebereich: 0 - 1024 --> 0-10V  
-    vent_office = intPayload;
-  }    
-  if (topic[12] =='S' ) {
-    write_analog_output((intPayload*100)+25, 1);   //   Ziel: Schlafzimmer & Küche  "Ventilation_Sleep/Power"   Wertebereich: 0 - 1024 --> 0-10V  
-    vent_sleep = intPayload;  
-}  
-  if (topic[12] =='K' ) {
-    write_analog_output((intPayload*100)+25, 2);   //   Ziel: Fabio & Lia           "Ventilation_Kids/Power"    Wertebereich: 0 - 1024 --> 0-10V  
-    vent_kids = intPayload;    
-  }    
-  if (topic[8] =='P' )  {
-  write_analog_output((intPayload*125)+50, 3);   //   Ziel: Heizstab              "Heating/Power"             Wertebereich: 0 - 1024 --> 0-10V   
-  }  
-  
-}
-
-  Serial.print(intPayload); Serial.print(" is Integer; "); Serial.print("] ");  Serial.print(test12); Serial.print(" and "); Serial.print(stringPayload); Serial.print(" is String; ");
-  
-  Serial.println();  
-// Heizstab:
-// Leistungsstufe	Von bis	Mittelwert
-      // 0	      0,00	    0,50
-      // 	        1,00	
-      // 1	      1,25	    1,75
-      // 	        2,25	
-      // 2	      2,50	    3,00
-      // 	        3,50	
-      // 3	      3,75	    4,25
-      // 	        4,75	
-      // 4	      5,00	    5,50
-      // 	        6,00	
-      // 5	      6,25	    6,75
-      // 	        7,25	
-      // 6	      7,50	    8,00
-      // 	        8,50	
-      // 7	      8,75	    9,25
-      // 	        9,75	
-
-
-//if (Client_Number == "13") client.publish("Sprudler/switch", publishtopic0, true);  
-  
-  if (millis() <= 40000){
-    if (topic[28] =='a' ){
-      if (energy_received ==false) {
-       energy_avg = energy_avg + doublePayload; //   Energiemessung
-       energy_received = true;
-       reset_energy = energy_avg;
-      }
-    }
-    if (topic[28] =='d' ){
-      if (day_received ==false) {
-       energy_day = energy_day + doublePayload; //   Energiemessung
-       day_received = true;
-      }
-    } 
-    if (topic[28] =='m' ){
-      if (month_received ==false) {
-       energy_month = energy_month + doublePayload; //   Energiemessung
-       month_received = true;
-      }
-    }  
-  }else{
-    if (topic[28] =='a' ){
-      if (reset_energy <= doublePayload) {
-       energy_avg = doublePayload; //   Energiemessung
-       energy_month = (today * 12000) - (12000) + energy_day; 
-       //4014kWh per year = 11kWh per Day
-       //4380kWh per year = 12kWh per Day 
-       //4745kWh per year = 13kWh per Day 
-       //5110kWh per year = 14kWh per Day    
-       }
-    }
-  }
-
-      //Funktion Steuerspannung        Min    Nenn   Max [V DC]
-      //Manuelle Steuerung            0,00 ≤ 0,25 ≤ 0,50
-      //Pausen-Funktion               1,00 ≤ 1,25 ≤ 1,50
-      //Wärmerückgewinnung Stufe 1    2,00 ≤ 2,25 ≤ 2,50
-      //Wärmerückgewinnung Stufe 2    3,00 ≤ 3,25 ≤ 3,50
-      //Wärmerückgewinnung Stufe 3    4,00 ≤ 4,25 ≤ 4,50
-      //Unknown                       5,00 ≤ 5,25 ≤ 5,50
-      //Durchlüftung Stufe 1          6,00 ≤ 6,25 ≤ 6,50
-      //Durchlüftung Stufe 2          7,00 ≤ 7,25 ≤ 7,50
-      //Durchlüftung Stufe 3          8,00 ≤ 8,25 ≤ 8,50
-      //Unknown                       9,00 ≤ 9,25 ≤ 9,50
-
-    
-//  int int_first = intPayload / 10;
-//  int int_second = intPayload - (int_first*10);
-//
-//  int first_bit = int_first / 4;        //HIGH-Byte berechnen
-//  int second_bit = (int_first - (first_bit * 4)) / 2;
-//  int third_bit = int_first - (first_bit * 4) - (second_bit *2);  //LOW-Byte berechnen
-
-//  if (first_bit == 1) write_analog_output((int_second*100)+25, 2); 
-//  if (second_bit == 1) write_analog_output((int_second*100)+25, 1); 
-//  if (third_bit == 1) write_analog_output((int_second*100)+25, 0); 
-  
-
- 
-  
-//  String stringOne =  String(*payload); //Returns ASCII Value of first character
-  
-  
-//    
-//    Serial.print((char *)payload);  //whole Message
-//    Serial.print(" is CharString; ");
-//    Serial.print(stringOne);
-//    Serial.print(" is String; ");
-//  
-//  for (int i = 0; i < length; i++) {    //Umwandeln von Byte in Character bzw String
-//    Serial.print((char)payload[i]); //Only one character 
-//
-//    Serial.print(" is Char with lenght; ");
-//  }
-   Serial.println();
-   Serial.print(topic); 
-   Serial.println();     
-// 
-  
-  //strcpy(chars_added + strlen(part1), part2);
-
- char char_payload[10];
-  String string_to_convert;
-  
-  if (topic[8] =='P' ) intPayload = intPayload * 10; //Heizung 
-   string_to_convert = String(intPayload);           //Heizung 
-  string_to_convert.toCharArray(char_payload,10);    //Heizung 
-
-
-  client.publish(chars_added,char_payload);
-  //client.publish("Ventilation/switch/status";1)
-   // client.publish("office/light/brightness",(char *)payload);
-   Serial.println();
-   Serial.print(topic); 
-   Serial.println();        
-   Serial.print(chars_added);
-   Serial.print(" is Topic & /status; ");
-   Serial.print(char_payload);
-   Serial.print(" is Char_Payload.");
-  
-   Serial.println();
-
-
-  // Switch on the LED if an 1 was received as first character
-  
-  if ((char)payload[0] == '0') {
-  
-    //digitalWrite(LED_BUILTIN, HIGH);  // Turn the LED off by making the voltage HIGH
-    Serial.print("detected: 0");
-//    write_analog_output(100,0);
-//    write_analog_output(100,1);
-//    write_analog_output(100,2);
-//    write_analog_output(100,3);
-  }
-  
-  if ((char)payload[0] == '1') {
-    //digitalWrite(LED_BUILTIN, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    Serial.print("detected: 1");
-//    write_analog_output(200,0);
-//    write_analog_output(200,1);
-//    write_analog_output(200,2);
-//    write_analog_output(200,3);
-    // but actually the LED is on; this is because
-    // it is active low on the ESP-01)
-    //ESP.restart();                //restart ESP8266
-  } 
- 
-  
-}
 
 void water_control(){  
 
@@ -3272,6 +3430,7 @@ void read_periode() {
       if (periode == 0 ) flow_rate = 0;
       co2_pwm = flow_rate;
   }
+
 
  void read_energy_PWM()
   {
