@@ -3,7 +3,9 @@ NCode is used with an ESP8266.
 Intension is to have a Weatherstation with multiple Sensors, 
 Additionally i have many indoor Sensors (per room in my house).
 
+
 This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the following features:
+
 
 - imlemented Sensors:
   - DHT22 (Temp & Humidity)
@@ -16,12 +18,15 @@ This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the follo
   - ST VL6180 proximitySensor
   - Wind Speed Sensor
   - AMS BH1750 (light Sensor)
+
  
 - Implemented Dispaly (for Indoor use)
   -   SSD1306 (OLED 128x64 pixel)
+
  
 -   Implemented Air condition control (via IR LED)
   - Midea
+
   
 - Implemented Services:
   - Home Assistant Auto Discovery
@@ -38,14 +43,16 @@ This Arduino Project is a NodeMCU (ESP8266) based Weatherstation, with the follo
   - Sent automatic Status Information via Pushingbox
   - Automatically select WiFi with best signal strenght
 
-      Pinning of your NodeMCU pins where your sensors are connected:
-- D1    //Connect Speed Sensor (Wind Sensor)
-- D2    //Connect Pulse Sensor (Energy Sensor)
-- D4    // this Connects DHT22 to NodeMCU Pin D4
-- D5    //defines the i2C Clock Pin on D5
-- D6    //defines the i2C Data Pin on D6
-- D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
-- D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
+    
+- Pinning of your NodeMCU pins where your sensors are connected:
+  - D1    //Connect Speed Sensor (Wind Sensor)
+  - D2    //Connect Pulse Sensor (Energy Sensor)
+  - D4    // this Connects DHT22 to NodeMCU Pin D4
+  - D5    //defines the i2C Clock Pin on D5
+  - D6    //defines the i2C Data Pin on D6
+  - D7    //this is PWM input for MHZ19-B Co2 Sensor to NodeMCU Pin D7
+  - D8    // this Connects MAXIM DS18B20 to NodeMCU Pin D8
+
     
 You will need the following Arduino Libraries:
 - ESP8266WiFi.h
@@ -81,9 +88,6 @@ You will need the following Arduino Libraries:
 - IRremoteESP8266.h
 - IRsend.h
 - ir_Midea.h
-
-
-
 
 
 No Power Saving Modes are implemented, so Powering without batteries is recommended.
